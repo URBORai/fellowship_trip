@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>留言板 — 板橋團契出遊</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">⛺ 板橋團契出遊</a>
+      <button class="nav-toggle" id="navToggle">≡</button>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">首頁</a>
+        <a href="schedule.html">行程</a>
+        <a href="tasks.html">任務</a>
+        <a href="expenses.html">財務</a>
+        <a href="board.html">留言板</a>
+      </div>
+      <div class="nav-user" id="navUser">
+        <span id="userName"></span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.35)" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>留言板</h1>
+      <p>分享心情、留下回憶 💬</p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">發表留言</p>
+      <div class="form-group">
+        <textarea id="content" placeholder="想說什麼都可以…" rows="3"></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" id="postBtn" onclick="postMsg()">發表</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="postList"><div class="loading">載入中…</div></div>
+    </div>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script>
+    window.initNavbar('board.html');
+    const user = window.getUser();
+    if (!user) document.querySelector('.card').style.display = 'none';
+
+    async function load() {
+      const el = document.getElementById('postList');
+      try {
+        const res = await window.authFetch('/api/board');
+        const posts = await res.json();
+        if (!res.ok) throw new Error(posts.error);
+
+        if (posts.length === 0) {
+          el.innerHTML = '<div class="empty">還沒有留言，來發第一篇吧！</div>';
+          return;
+        }
+
+        el.innerHTML = posts.map(p => {
+          const isOwner = p.created_by === user.id;
+          const isAdmin = user.role === 'admin';
+          const canDelete = isOwner || isAdmin;
+          return `
+            <div class="post-item" id="post-${p.id}">
+              <div class="post-header">
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                  <div class="avatar" style="width:32px;height:32px;font-size:0.8rem">${p.users ? p.users.name.charAt(0) : '?'}</div>
+                  <span class="post-author">${p.users ? escHtml(p.users.name) : '未知'}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                  <span class="post-meta">${window.fmtDateTime(p.created_at)}</span>
+                  ${canDelete ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️</button>` : ''}
+                </div>
+              </div>
+              <div class="post-content">${escHtml(p.content)}</div>
+            </div>`;
+        }).join('');
+      } catch (e) {
+        el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      }
+    }
+
+    async function postMsg() {
+      const content = document.getElementById('content').value.trim();
+      if (!content) { window.showToast('請輸入內容', 'err'); return; }
+      const btn = document.getElementById('postBtn');
+      btn.disabled = true;
+      try {
+        const res = await window.authFetch('/api/board', {
+          method: 'POST',
+          body: JSON.stringify({ content })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+        document.getElementById('content').value = '';
+        window.showToast('✅ 已發表留言', 'ok');
+        load();
+      } catch { window.showToast('網路錯誤', 'err'); }
+      finally { btn.disabled = false; }
+    }
+
+    async function deletePost(id) {
+      if (!confirm('確定要刪除這則留言嗎？')) return;
+      try {
+        const res = await window.authFetch(`/api/board/${id}`, { method: 'DELETE' });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error, 'err'); return; }
+        document.getElementById(`post-${id}`)?.remove();
+        window.showToast('已刪除', 'ok');
+        if (!document.querySelector('.post-item')) {
+          document.getElementById('postList').innerHTML = '<div class="empty">還沒有留言，來發第一篇吧！</div>';
+        }
+      } catch { window.showToast('網路錯誤', 'err'); }
+    }
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // Submit on Ctrl+Enter
+    document.getElementById('content').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) postMsg();
+    });
+
+    load();
+  </script>
+</body>
+</html>

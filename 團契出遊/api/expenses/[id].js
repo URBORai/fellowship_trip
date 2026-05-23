@@ -1,0 +1,53 @@
+const { sb } = require('../_supabase');
+
+module.exports = async (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-user-id, x-user-role');
+  res.setHeader('Access-Control-Allow-Methods', 'PUT, DELETE, OPTIONS');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
+  const userId = req.headers['x-user-id'];
+  const userRole = req.headers['x-user-role'];
+  const { id } = req.query;
+  if (!userId) return res.status(401).json({ error: '未登入' });
+  if (userRole !== 'admin') return res.status(403).json({ error: '僅管理員可修改費用記錄' });
+
+  try {
+    const rows = await sb(`expenses?id=eq.${id}&select=id`);
+    if (!rows || rows.length === 0) return res.status(404).json({ error: '找不到記錄' });
+  } catch (e) {
+    console.error('expenses/[id] verify error:', e);
+    return res.status(500).json({ error: '伺服器錯誤' });
+  }
+
+  if (req.method === 'PUT') {
+    const { description, amount, date } = req.body || {};
+    if (!description || !amount || !date) {
+      return res.status(400).json({ error: '請填寫所有欄位' });
+    }
+    const amt = parseFloat(amount);
+    if (isNaN(amt) || amt <= 0) return res.status(400).json({ error: '金額必須大於 0' });
+    try {
+      const updated = await sb(`expenses?id=eq.${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ description: description.trim(), amount: amt, date })
+      });
+      return res.status(200).json(updated[0]);
+    } catch (e) {
+      console.error('expenses PUT error:', e);
+      return res.status(500).json({ error: '伺服器錯誤' });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      await sb(`expenses?id=eq.${id}`, { method: 'DELETE' });
+      return res.status(204).end();
+    } catch (e) {
+      console.error('expenses DELETE error:', e);
+      return res.status(500).json({ error: '伺服器錯誤' });
+    }
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
+};

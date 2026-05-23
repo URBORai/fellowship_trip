@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>行程 — 板橋團契出遊</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">⛺ 板橋團契出遊</a>
+      <button class="nav-toggle" id="navToggle">≡</button>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">首頁</a>
+        <a href="schedule.html">行程</a>
+        <a href="tasks.html">任務</a>
+        <a href="expenses.html">財務</a>
+        <a href="board.html">留言板</a>
+      </div>
+      <div class="nav-user" id="navUser">
+        <span id="userName"></span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.35)" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>三天行程表</h1>
+      <p>詳細時間與地點，有變動會提前通知</p>
+    </div>
+
+    <!-- Day 1 -->
+    <div class="day-section">
+      <div class="day-header">
+        <span class="day-badge">第一天</span>
+        <h2>出發日 · X 月 X 日（五）</h2>
+      </div>
+      <div class="card">
+        <div class="timeline">
+          <div class="tl-item highlight">
+            <div class="tl-time">07:30</div>
+            <div class="tl-title">集合出發 🚗</div>
+            <div class="tl-desc">請提前抵達集合地點，準時出發</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">途中</div>
+            <div class="tl-title">交通途中</div>
+            <div class="tl-desc">預計行車約 X 小時，可準備零食</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">12:00</div>
+            <div class="tl-title">午餐 🍱</div>
+            <div class="tl-desc">（地點待定）</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">14:00</div>
+            <div class="tl-title">抵達目的地</div>
+            <div class="tl-desc">辦理入住，放置行李</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">15:00</div>
+            <div class="tl-title">自由活動</div>
+            <div class="tl-desc">附近探索或休息</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">18:00</div>
+            <div class="tl-title">晚餐 🍖</div>
+            <div class="tl-desc">烤肉時間！請自備想烤的食材</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">20:00</div>
+            <div class="tl-title">晚間團契 🙏</div>
+            <div class="tl-desc">團康遊戲、敬拜、分享</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Day 2 -->
+    <div class="day-section">
+      <div class="day-header">
+        <span class="day-badge" style="background:#7C3AED">第二天</span>
+        <h2>活動日 · X 月 X 日（六）</h2>
+      </div>
+      <div class="card">
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-time">07:30</div>
+            <div class="tl-title">早餐 ☕</div>
+            <div class="tl-desc">一起準備早餐，輪流負責</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">09:00</div>
+            <div class="tl-title">上午主要活動 🌊</div>
+            <div class="tl-desc">（活動內容待公布）</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">12:00</div>
+            <div class="tl-title">午餐 🥘</div>
+            <div class="tl-desc">（地點待定）</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">13:30</div>
+            <div class="tl-title">午休 💤</div>
+            <div class="tl-desc">稍作休息，補充體力</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">14:30</div>
+            <div class="tl-title">下午活動 🎯</div>
+            <div class="tl-desc">（活動內容待公布）</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">18:00</div>
+            <div class="tl-title">晚餐 🍽️</div>
+            <div class="tl-desc">（地點待定）</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">20:00</div>
+            <div class="tl-title">晚間特別節目 ⭐</div>
+            <div class="tl-desc">送舊主題活動，表演、分享、感恩</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Day 3 -->
+    <div class="day-section">
+      <div class="day-header">
+        <span class="day-badge" style="background:#059669">第三天</span>
+        <h2>回程日 · X 月 X 日（日）</h2>
+      </div>
+      <div class="card">
+        <div class="timeline">
+          <div class="tl-item">
+            <div class="tl-time">07:30</div>
+            <div class="tl-title">早餐 ☕</div>
+            <div class="tl-desc">最後一頓早餐，好好享用</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">08:30</div>
+            <div class="tl-title">打掃整理 🧹</div>
+            <div class="tl-desc">環境清潔，整理行李準備退房</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">10:00</div>
+            <div class="tl-title">大合照 📸</div>
+            <div class="tl-desc">留下美好回憶！</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">10:30</div>
+            <div class="tl-title">退房出發</div>
+            <div class="tl-desc">收拾完畢後準時出發</div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-time">12:00</div>
+            <div class="tl-title">午餐 🍜</div>
+            <div class="tl-desc">回程途中用餐</div>
+          </div>
+          <div class="tl-item highlight">
+            <div class="tl-time">15:00</div>
+            <div class="tl-title">抵達板橋 🏠</div>
+            <div class="tl-desc">平安回家，活動圓滿結束！</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background:#FFFBEB;border:1.5px solid #FDE68A">
+      <p style="font-size:0.875rem;color:#92400E">⚠️ 以上行程僅供參考，實際時間與地點以負責人公告為準。如有特殊需求請提前聯絡。</p>
+    </div>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script>
+    window.initNavbar('schedule.html');
+  </script>
+</body>
+</html>

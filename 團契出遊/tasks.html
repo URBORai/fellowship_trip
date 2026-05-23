@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>任務 — 板橋團契出遊</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">⛺ 板橋團契出遊</a>
+      <button class="nav-toggle" id="navToggle">≡</button>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">首頁</a>
+        <a href="schedule.html">行程</a>
+        <a href="tasks.html">任務</a>
+        <a href="expenses.html">財務</a>
+        <a href="board.html">留言板</a>
+      </div>
+      <div class="nav-user" id="navUser">
+        <span id="userName"></span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.35)" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>任務清單</h1>
+      <p id="pageDesc">我的待辦事項</p>
+    </div>
+    <div id="taskList"><div class="loading">載入中…</div></div>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script>
+    const user = window.requireAuth();
+    if (!user) throw new Error('not authed');
+    window.initNavbar('tasks.html');
+
+    if (user.role === 'admin') {
+      document.getElementById('pageDesc').textContent = '所有人的任務（Admin 視角）';
+    }
+
+    async function loadTasks() {
+      const container = document.getElementById('taskList');
+      try {
+        const res = await window.authFetch('/api/tasks');
+        const tasks = await res.json();
+        if (!res.ok) throw new Error(tasks.error);
+
+        if (tasks.length === 0) {
+          container.innerHTML = '<div class="empty">目前沒有任何任務 🎉</div>';
+          return;
+        }
+
+        if (user.role === 'admin') {
+          // Group by user
+          const groups = {};
+          tasks.forEach(t => {
+            const name = t.users ? t.users.name : '未知';
+            if (!groups[name]) groups[name] = [];
+            groups[name].push(t);
+          });
+          container.innerHTML = '';
+          Object.entries(groups).forEach(([name, list]) => {
+            const done = list.filter(t => t.status === 'done').length;
+            const div = document.createElement('div');
+            div.className = 'user-group';
+            div.innerHTML = `
+              <div class="user-group-title">
+                <div class="avatar" style="width:28px;height:28px;font-size:0.75rem">${name.charAt(0)}</div>
+                ${name}
+                <span class="badge badge-done">${done}/${list.length}</span>
+              </div>
+              ${list.map(t => taskHTML(t)).join('')}
+            `;
+            container.appendChild(div);
+          });
+        } else {
+          const done = tasks.filter(t => t.status === 'done').length;
+          container.innerHTML = `
+            <div class="card">
+              <div class="flex-between mb-3">
+                <span class="text-muted text-sm">完成進度</span>
+                <span class="badge badge-done">${done} / ${tasks.length} 完成</span>
+              </div>
+              <div style="background:var(--border);border-radius:99px;height:6px;margin-bottom:1rem">
+                <div style="background:var(--success);height:6px;border-radius:99px;width:${tasks.length ? Math.round(done/tasks.length*100) : 0}%;transition:width 0.3s"></div>
+              </div>
+              ${tasks.map(t => taskHTML(t)).join('')}
+            </div>`;
+        }
+
+        // Attach checkbox listeners
+        container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+          cb.addEventListener('change', () => toggleTask(cb.dataset.id, cb.checked));
+        });
+      } catch (e) {
+        container.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      }
+    }
+
+    function taskHTML(t) {
+      const isDone = t.status === 'done';
+      return `
+        <div class="task-item ${isDone ? 'done' : ''}" id="task-${t.id}">
+          <input type="checkbox" data-id="${t.id}" ${isDone ? 'checked' : ''}>
+          <div class="task-body">
+            <h3>${escHtml(t.title)}</h3>
+            ${t.content ? `<p>${escHtml(t.content)}</p>` : ''}
+          </div>
+          <span class="badge ${isDone ? 'badge-done' : 'badge-pending'}" style="flex-shrink:0">${isDone ? '完成' : '待辦'}</span>
+        </div>`;
+    }
+
+    async function toggleTask(id, isDone) {
+      const status = isDone ? 'done' : 'pending';
+      try {
+        const res = await window.authFetch(`/api/tasks/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ status })
+        });
+        if (!res.ok) {
+          const d = await res.json();
+          window.showToast(d.error || '更新失敗', 'err');
+          loadTasks();
+          return;
+        }
+        const row = document.getElementById(`task-${id}`);
+        if (row) {
+          row.classList.toggle('done', isDone);
+          const badge = row.querySelector('.badge');
+          if (badge) {
+            badge.className = 'badge ' + (isDone ? 'badge-done' : 'badge-pending');
+            badge.textContent = isDone ? '完成' : '待辦';
+          }
+          const title = row.querySelector('h3');
+          if (title) title.style.textDecoration = isDone ? 'line-through' : '';
+        }
+        window.showToast(isDone ? '✅ 已標記完成' : '↩️ 已取消完成', isDone ? 'ok' : '');
+      } catch {
+        window.showToast('網路錯誤', 'err');
+        loadTasks();
+      }
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    loadTasks();
+  </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>登入 — 板橋團契出遊</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <div class="login-logo">⛺</div>
+    <h1>板橋團契出遊</h1>
+    <p class="login-sub">請輸入你的專屬密語以登入</p>
+    <div class="error-msg" id="errMsg"></div>
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="passphrase">密語</label>
+        <input type="password" id="passphrase" placeholder="請輸入密語" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full" id="submitBtn">登入</button>
+    </form>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    // Already logged in
+    if (window.getUser()) window.location.href = '/index.html';
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      const errEl = document.getElementById('errMsg');
+      const passphrase = document.getElementById('passphrase').value;
+
+      btn.disabled = true;
+      btn.textContent = '登入中…';
+      errEl.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ passphrase })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errEl.textContent = data.error || '登入失敗';
+          errEl.style.display = 'block';
+          return;
+        }
+
+        localStorage.setItem('user', JSON.stringify(data));
+        window.location.href = data.role === 'admin' ? 'admin.html' : 'index.html';
+      } catch {
+        errEl.textContent = '網路錯誤，請稍後再試';
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '登入';
+      }
+    });
+  </script>
+</body>
+</html>

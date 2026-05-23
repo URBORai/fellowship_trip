@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>財務明細 — 板橋團契出遊</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <nav class="navbar" id="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">⛺ 板橋團契出遊</a>
+      <button class="nav-toggle" id="navToggle">≡</button>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">首頁</a>
+        <a href="schedule.html">行程</a>
+        <a href="tasks.html">任務</a>
+        <a href="expenses.html">財務</a>
+        <a href="board.html">留言板</a>
+      </div>
+      <div class="nav-user" id="navUser">
+        <span id="userName"></span>
+        <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.35)" onclick="logout()">登出</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="page-header">
+      <h1>財務明細</h1>
+      <p>記錄共同花費，出遊後自動結算</p>
+    </div>
+
+    <!-- Add expense form -->
+    <div class="card">
+      <p class="card-title">新增一筆費用</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>項目說明</label>
+          <input type="text" id="desc" placeholder="例：住宿費、油費…">
+        </div>
+        <div class="form-group">
+          <label>金額（NT$）</label>
+          <input type="number" id="amount" placeholder="0" min="1" step="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="date">
+      </div>
+      <button class="btn btn-primary" id="addBtn" onclick="addExpense()">新增費用</button>
+    </div>
+
+    <!-- Expense list -->
+    <div class="card">
+      <div class="flex-between mb-3">
+        <p class="card-title" style="margin:0">所有費用記錄</p>
+      </div>
+      <div id="expenseList"><div class="loading">載入中…</div></div>
+      <div class="total-bar" id="totalBar" style="display:none">
+        <span>總計</span>
+        <span class="amount" id="totalAmt"></span>
+      </div>
+    </div>
+
+    <!-- Settlement -->
+    <div class="card" id="settlementCard" style="display:none">
+      <p class="card-title">結算明細</p>
+      <p class="text-muted text-sm mb-3">每人應分攤：<strong id="shareAmt"></strong></p>
+      <div class="settle-grid" id="settleGrid"></div>
+      <hr class="divider">
+      <p class="card-title" style="font-size:0.9rem">建議付款方式</p>
+      <ul class="txn-list" id="txnList"></ul>
+    </div>
+  </main>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="editModal" style="display:none">
+    <div class="modal">
+      <h3>編輯費用</h3>
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>項目說明</label>
+        <input type="text" id="editDesc">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>金額（NT$）</label>
+          <input type="number" id="editAmount" min="1">
+        </div>
+        <div class="form-group">
+          <label>日期</label>
+          <input type="date" id="editDate">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveEdit()">儲存</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    const user = window.requireAuth();
+    if (!user) throw new Error('not authed');
+    window.initNavbar('expenses.html');
+
+    // Default today's date
+    document.getElementById('date').valueAsDate = new Date();
+
+    let allExpenses = [];
+    let allUsers = [];
+
+    async function load() {
+      try {
+        const [eRes, uRes] = await Promise.all([
+          window.authFetch('/api/expenses'),
+          window.authFetch('/api/users')
+        ]);
+        allExpenses = await eRes.json();
+        allUsers = await uRes.json();
+        if (!eRes.ok) throw new Error(allExpenses.error);
+        renderExpenses();
+        renderSettlement();
+      } catch (e) {
+        document.getElementById('expenseList').innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      }
+    }
+
+    function renderExpenses() {
+      const el = document.getElementById('expenseList');
+      const total = allExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+
+      if (allExpenses.length === 0) {
+        el.innerHTML = '<div class="empty">還沒有任何費用記錄</div>';
+        document.getElementById('totalBar').style.display = 'none';
+        return;
+      }
+
+      el.innerHTML = allExpenses.map(e => {
+        const isAdmin = user.role === 'admin';
+        return `
+          <div class="expense-row">
+            <div>
+              <div class="expense-desc">${escHtml(e.description)}</div>
+              <div class="expense-meta">
+                <span>👤 ${e.users ? e.users.name : '?'}</span>
+                <span>📅 ${window.fmtDate(e.date || e.created_at)}</span>
+              </div>
+            </div>
+            <div class="expense-right">
+              <div class="expense-amount">${window.fmtMoney(e.amount)}</div>
+              ${isAdmin ? `
+                <div class="expense-actions">
+                  <button class="btn btn-ghost btn-sm" onclick="openEdit('${e.id}')">✏️</button>
+                  <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteExpense('${e.id}')">🗑️</button>
+                </div>` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      document.getElementById('totalBar').style.display = 'flex';
+      document.getElementById('totalAmt').textContent = window.fmtMoney(total);
+    }
+
+    function renderSettlement() {
+      const card = document.getElementById('settlementCard');
+      if (allUsers.length === 0 || allExpenses.length === 0) { card.style.display = 'none'; return; }
+
+      const total = allExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
+      const n = allUsers.length;
+      const share = total / n;
+
+      document.getElementById('shareAmt').textContent = window.fmtMoney(share);
+
+      const paid = {};
+      allUsers.forEach(u => paid[u.id] = 0);
+      allExpenses.forEach(e => {
+        if (paid[e.created_by] !== undefined) paid[e.created_by] += parseFloat(e.amount);
+      });
+
+      const balances = allUsers.map(u => ({
+        id: u.id, name: u.name,
+        paid: paid[u.id] || 0,
+        balance: (paid[u.id] || 0) - share
+      }));
+
+      document.getElementById('settleGrid').innerHTML = balances.map(b => `
+        <div class="settle-card ${b.balance >= 0 ? 'owed' : 'owes'}">
+          <div class="settle-name">${escHtml(b.name)}</div>
+          <div class="settle-amount">${b.balance >= 0 ? '+' : ''}${window.fmtMoney(b.balance)}</div>
+          <div class="settle-paid text-muted">已付出 ${window.fmtMoney(b.paid)}</div>
+        </div>`).join('');
+
+      // Minimal transactions
+      const cred = balances.filter(b => b.balance > 0.5).map(b => ({...b})).sort((a,b) => b.balance - a.balance);
+      const debt = balances.filter(b => b.balance < -0.5).map(b => ({...b})).sort((a,b) => a.balance - b.balance);
+      const txns = [];
+      let i = 0, j = 0;
+      while (i < cred.length && j < debt.length) {
+        const amt = Math.min(cred[i].balance, -debt[j].balance);
+        txns.push({ from: debt[j].name, to: cred[i].name, amount: Math.round(amt) });
+        cred[i].balance -= amt;
+        debt[j].balance += amt;
+        if (cred[i].balance < 0.5) i++;
+        if (debt[j].balance > -0.5) j++;
+      }
+
+      const txnList = document.getElementById('txnList');
+      if (txns.length === 0) {
+        txnList.innerHTML = '<li>✅ 所有人已平帳！</li>';
+      } else {
+        txnList.innerHTML = txns.map(t =>
+          `<li>💸 <strong>${escHtml(t.from)}</strong> 需付給 <strong>${escHtml(t.to)}</strong>：${window.fmtMoney(t.amount)}</li>`
+        ).join('');
+      }
+      card.style.display = 'block';
+    }
+
+    async function addExpense() {
+      const desc = document.getElementById('desc').value.trim();
+      const amount = document.getElementById('amount').value;
+      const date = document.getElementById('date').value;
+      if (!desc || !amount || !date) { window.showToast('請填寫所有欄位', 'err'); return; }
+
+      const btn = document.getElementById('addBtn');
+      btn.disabled = true;
+      try {
+        const res = await window.authFetch('/api/expenses', {
+          method: 'POST',
+          body: JSON.stringify({ description: desc, amount, date })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+        document.getElementById('desc').value = '';
+        document.getElementById('amount').value = '';
+        document.getElementById('date').valueAsDate = new Date();
+        window.showToast('✅ 已新增費用', 'ok');
+        load();
+      } catch { window.showToast('網路錯誤', 'err'); }
+      finally { btn.disabled = false; }
+    }
+
+    function openEdit(id) {
+      const e = allExpenses.find(x => x.id === id);
+      if (!e) return;
+      document.getElementById('editId').value = id;
+      document.getElementById('editDesc').value = e.description;
+      document.getElementById('editAmount').value = e.amount;
+      document.getElementById('editDate').value = (e.date || e.created_at || '').slice(0, 10);
+      document.getElementById('editModal').style.display = 'flex';
+    }
+
+    function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+    async function saveEdit() {
+      const id = document.getElementById('editId').value;
+      const description = document.getElementById('editDesc').value.trim();
+      const amount = document.getElementById('editAmount').value;
+      const date = document.getElementById('editDate').value;
+      if (!description || !amount || !date) { window.showToast('請填寫所有欄位', 'err'); return; }
+      try {
+        const res = await window.authFetch(`/api/expenses/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ description, amount, date })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+        closeModal();
+        window.showToast('✅ 已更新', 'ok');
+        load();
+      } catch { window.showToast('網路錯誤', 'err'); }
+    }
+
+    async function deleteExpense(id) {
+      if (!confirm('確定要刪除這筆費用嗎？')) return;
+      try {
+        const res = await window.authFetch(`/api/expenses/${id}`, { method: 'DELETE' });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error, 'err'); return; }
+        window.showToast('已刪除', 'ok');
+        load();
+      } catch { window.showToast('網路錯誤', 'err'); }
+    }
+
+    document.getElementById('editModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('editModal')) closeModal();
+    });
+
+    function escHtml(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    load();
+  </script>
+</body>
+</html>
