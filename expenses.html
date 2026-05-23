@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>財務明細 — 板橋團契出遊</title>
   <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
   <nav class="navbar" id="navbar">
@@ -105,6 +106,16 @@
     const user = window.requireAuth();
     if (!user) throw new Error('not authed');
     window.initNavbar('expenses.html');
+
+    if (!sessionStorage.getItem('taxReminded')) {
+      Swal.fire({
+        icon: 'info',
+        title: '報帳提醒',
+        html: '如需申請報帳，請向商家索取發票並告知統一編號：<br><strong style="font-size:1.3rem;letter-spacing:2px">（統編佔位）</strong>',
+        confirmButtonText: '知道了'
+      });
+      sessionStorage.setItem('taxReminded', '1');
+    }
 
     // Default today's date
     document.getElementById('date').valueAsDate = new Date();
