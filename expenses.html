@@ -103,19 +103,19 @@
 
   <script src="js/auth.js"></script>
   <script>
-    const user = window.requireAuth();
-    if (!user) throw new Error('not authed');
+    const user = window.getUser();
     window.initNavbar('expenses.html');
 
-    if (!sessionStorage.getItem('taxReminded')) {
-      Swal.fire({
-        icon: 'info',
-        title: '報帳提醒',
-        html: '如需申請報帳，請向商家索取發票並告知統一編號：<br><strong style="font-size:1.3rem;letter-spacing:2px">（統編佔位）</strong>',
-        confirmButtonText: '知道了'
-      });
-      sessionStorage.setItem('taxReminded', '1');
+    if (!user) {
+      document.querySelector('.card').style.display = 'none';
     }
+
+    Swal.fire({
+      icon: 'info',
+      title: '報帳提醒',
+      html: '如需申請報帳，請向商家索取發票<br>抬頭:財團法人真耶穌教會板橋教會<br>統一編號：<strong style="font-size:1.3rem;letter-spacing:2px">（52399254）</strong>',
+      confirmButtonText: '知道了'
+    });
 
     // Default today's date
     document.getElementById('date').valueAsDate = new Date();

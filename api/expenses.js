@@ -7,7 +7,6 @@ module.exports = async (req, res) => {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   const userId = req.headers['x-user-id'];
-  if (!userId) return res.status(401).json({ error: '未登入' });
 
   if (req.method === 'GET') {
     try {
@@ -20,6 +19,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'POST') {
+    if (!userId) return res.status(401).json({ error: '未登入' });
     const { description, amount, date } = req.body || {};
     if (!description || !amount || !date) {
       return res.status(400).json({ error: '請填寫所有欄位' });
