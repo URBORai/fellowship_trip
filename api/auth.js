@@ -1,4 +1,3 @@
-const bcrypt = require('bcryptjs');
 const { sb } = require('./_supabase');
 const { issueToken } = require('./_session');
 
@@ -14,12 +13,13 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const candidates = await sb('users?select=id,name,role,passphrase_hash');
+    const candidates = await sb('users?select=id,name,role,passphrase');
     let matched = null;
+    // NFC 正規化：中文在不同裝置／輸入法可能產生不同的 Unicode 組合形式
+    const input = passphrase.trim().normalize('NFC');
     for (const u of candidates || []) {
-      if (!u.passphrase_hash) continue;
-      const ok = await bcrypt.compare(passphrase.trim(), u.passphrase_hash);
-      if (ok) {
+      if (!u.passphrase) continue;
+      if (u.passphrase.trim().normalize('NFC') === input) {
         matched = u;
         break;
       }
