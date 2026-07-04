@@ -5,6 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>任務 — 板橋團契出遊</title>
   <link rel="stylesheet" href="css/style.css">
+  <style>
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+    .photo-slot {
+      position: relative; aspect-ratio: 1; border: 2px dashed var(--border, #d1d5db);
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      overflow: hidden; background: rgba(0,0,0,0.03);
+    }
+    .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-slot .slot-actions {
+      position: absolute; bottom: 6px; right: 6px; display: flex; gap: 4px;
+    }
+    .photo-slot .slot-actions .btn {
+      background: rgba(0,0,0,0.55); color: #fff; border: none; padding: 0.25rem 0.45rem;
+    }
+    .photo-empty { cursor: pointer; text-align: center; color: #9ca3af; }
+    .mini-slot { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; display: block; }
+    .mini-slot-empty { width: 36px; height: 36px; border: 1.5px dashed #d1d5db; border-radius: 6px; }
+  </style>
 </head>
 <body>
   <nav class="navbar" id="navbar">
@@ -29,6 +47,22 @@
     <div class="page-header">
       <h1>任務清單</h1>
       <p id="pageDesc">我的待辦事項</p>
+    </div>
+
+    <!-- 照片任務：每人固定 3 格 -->
+    <div class="card">
+      <div class="flex-between mb-3">
+        <p class="card-title" style="margin:0">📸 照片任務：上傳 3 張出遊照片</p>
+        <span class="badge badge-pending" id="photoCount">0 / 3</span>
+      </div>
+      <p class="text-muted text-sm mb-3">單張上限 10MB，可隨時更換或刪除</p>
+      <div class="photo-grid" id="photoGrid"><div class="loading">載入中…</div></div>
+    </div>
+
+    <!-- 全員照片繳交狀況（僅 SYS_ADMIN 顯示） -->
+    <div class="card" id="photoOverviewCard" style="display:none">
+      <p class="card-title">全員照片繳交狀況</p>
+      <div id="photoOverview"><div class="loading">載入中…</div></div>
     </div>
 
     <!-- 指派任務（僅 SYS_ADMIN 顯示） -->
@@ -64,7 +98,116 @@
     if (isAdmin) {
       document.getElementById('pageDesc').textContent = '所有人的任務（Admin 視角）';
       document.getElementById('assignCard').style.display = '';
+      document.getElementById('photoOverviewCard').style.display = '';
       loadMembers();
+      loadPhotoOverview();
+    }
+
+    // ===== 照片任務 =====
+    const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+
+    async function loadPhotos() {
+      const grid = document.getElementById('photoGrid');
+      try {
+        const res = await window.authFetch('/api/photos');
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        renderPhotoGrid(data.slots || {});
+      } catch (e) {
+        grid.innerHTML = `<div class="empty" style="grid-column:1/-1">載入失敗：${e.message}</div>`;
+      }
+    }
+
+    function renderPhotoGrid(slots) {
+      const grid = document.getElementById('photoGrid');
+      let count = 0;
+      grid.innerHTML = [1, 2, 3].map(n => {
+        const url = slots[n];
+        if (url) {
+          count++;
+          return `
+            <div class="photo-slot">
+              <img src="${url}" alt="照片 ${n}">
+              <div class="slot-actions">
+                <label class="btn btn-sm" title="更換">🔄<input type="file" accept="image/*" hidden onchange="uploadPhoto(${n}, this)"></label>
+                <button class="btn btn-sm" title="刪除" onclick="deletePhoto(${n})">🗑️</button>
+              </div>
+            </div>`;
+        }
+        return `
+          <label class="photo-slot photo-empty">
+            <div><div style="font-size:1.6rem">＋</div><div style="font-size:0.75rem">上傳照片 ${n}</div></div>
+            <input type="file" accept="image/*" hidden onchange="uploadPhoto(${n}, this)">
+          </label>`;
+      }).join('');
+      const badge = document.getElementById('photoCount');
+      badge.textContent = `${count} / 3`;
+      badge.className = 'badge ' + (count === 3 ? 'badge-done' : 'badge-pending');
+    }
+
+    async function uploadPhoto(slot, input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      if (file.size > MAX_PHOTO_BYTES) { window.showToast('照片不能超過 10MB', 'err'); return; }
+
+      window.showToast('上傳中，請稍候…');
+      try {
+        // 跟後端要簽名上傳網址，再把檔案直傳 Supabase Storage（不經過 Vercel）
+        const res = await window.authFetch('/api/photos', {
+          method: 'POST',
+          body: JSON.stringify({ slot })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+
+        const up = await fetch(data.uploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
+          body: file
+        });
+        if (!up.ok) { window.showToast('上傳失敗，請再試一次', 'err'); return; }
+
+        window.showToast('✅ 照片已上傳', 'ok');
+        loadPhotos();
+        if (isAdmin) loadPhotoOverview();
+      } catch { window.showToast('網路錯誤', 'err'); }
+    }
+
+    async function deletePhoto(slot) {
+      if (!confirm('確定要刪除這張照片嗎？')) return;
+      try {
+        const res = await window.authFetch(`/api/photos?slot=${slot}`, { method: 'DELETE' });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error, 'err'); return; }
+        window.showToast('已刪除', 'ok');
+        loadPhotos();
+        if (isAdmin) loadPhotoOverview();
+      } catch { window.showToast('網路錯誤', 'err'); }
+    }
+
+    async function loadPhotoOverview() {
+      const el = document.getElementById('photoOverview');
+      try {
+        const res = await window.authFetch('/api/photos?all=1');
+        const list = await res.json();
+        if (!res.ok) throw new Error(list.error);
+        el.innerHTML = list.map(u => {
+          const c = Object.keys(u.slots).length;
+          return `
+            <div class="contact-item">
+              <div class="avatar">${escHtml(u.name.charAt(0))}</div>
+              <div class="contact-info"><div class="name">${escHtml(u.name)}</div></div>
+              <div style="display:flex;gap:4px;align-items:center">
+                ${[1, 2, 3].map(n => u.slots[n]
+                  ? `<a href="${u.slots[n]}" target="_blank"><img class="mini-slot" src="${u.slots[n]}"></a>`
+                  : '<div class="mini-slot-empty"></div>').join('')}
+                <span class="badge ${c === 3 ? 'badge-done' : 'badge-pending'}" style="margin-left:6px">${c}/3</span>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (e) {
+        el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      }
     }
 
     async function loadMembers() {
@@ -225,6 +368,7 @@
     }
 
     loadTasks();
+    loadPhotos();
   </script>
 </body>
 </html>
