@@ -29,7 +29,7 @@
   <main class="container">
     <div class="page-header">
       <h1>財務明細</h1>
-      <p>記錄共同花費，出遊後自動結算</p>
+      <p>報名費 $1,000 × 10 人 = $10,000 公費，支出從公費扣除</p>
     </div>
 
     <!-- Add expense form -->
@@ -59,19 +59,13 @@
       </div>
       <div id="expenseList"><div class="loading">載入中…</div></div>
       <div class="total-bar" id="totalBar" style="display:none">
-        <span>總計</span>
+        <span>已支出</span>
         <span class="amount" id="totalAmt"></span>
       </div>
-    </div>
-
-    <!-- Settlement -->
-    <div class="card" id="settlementCard" style="display:none">
-      <p class="card-title">結算明細</p>
-      <p class="text-muted text-sm mb-3">每人應分攤：<strong id="shareAmt"></strong></p>
-      <div class="settle-grid" id="settleGrid"></div>
-      <hr class="divider">
-      <p class="card-title" style="font-size:0.9rem">建議付款方式</p>
-      <ul class="txn-list" id="txnList"></ul>
+      <div class="total-bar" id="remainBar" style="display:none">
+        <span>剩餘公費（$10,000 − 已支出）</span>
+        <span class="amount" id="remainAmt"></span>
+      </div>
     </div>
   </main>
 
@@ -121,20 +115,16 @@
     // Default today's date
     document.getElementById('date').valueAsDate = new Date();
 
+    // 公費總額：報名費 $1,000 × 10 人
+    const BUDGET = 10000;
     let allExpenses = [];
-    let allUsers = [];
 
     async function load() {
       try {
-        const [eRes, uRes] = await Promise.all([
-          window.authFetch('/api/expenses'),
-          window.authFetch('/api/users')
-        ]);
+        const eRes = await window.authFetch('/api/expenses');
         allExpenses = await eRes.json();
-        allUsers = await uRes.json();
         if (!eRes.ok) throw new Error(allExpenses.error);
         renderExpenses();
-        renderSettlement();
       } catch (e) {
         document.getElementById('expenseList').innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
       }
@@ -147,6 +137,7 @@
       if (allExpenses.length === 0) {
         el.innerHTML = '<div class="empty">還沒有任何費用記錄</div>';
         document.getElementById('totalBar').style.display = 'none';
+        document.getElementById('remainBar').style.display = 'none';
         return;
       }
 
@@ -174,60 +165,13 @@
 
       document.getElementById('totalBar').style.display = 'flex';
       document.getElementById('totalAmt').textContent = window.fmtMoney(total);
-    }
 
-    function renderSettlement() {
-      const card = document.getElementById('settlementCard');
-      if (allUsers.length === 0 || allExpenses.length === 0) { card.style.display = 'none'; return; }
-
-      const total = allExpenses.reduce((s, e) => s + parseFloat(e.amount), 0);
-      const n = allUsers.length;
-      const share = total / n;
-
-      document.getElementById('shareAmt').textContent = window.fmtMoney(share);
-
-      const paid = {};
-      allUsers.forEach(u => paid[u.id] = 0);
-      allExpenses.forEach(e => {
-        if (paid[e.created_by] !== undefined) paid[e.created_by] += parseFloat(e.amount);
-      });
-
-      const balances = allUsers.map(u => ({
-        id: u.id, name: u.name,
-        paid: paid[u.id] || 0,
-        balance: (paid[u.id] || 0) - share
-      }));
-
-      document.getElementById('settleGrid').innerHTML = balances.map(b => `
-        <div class="settle-card ${b.balance >= 0 ? 'owed' : 'owes'}">
-          <div class="settle-name">${escHtml(b.name)}</div>
-          <div class="settle-amount">${b.balance >= 0 ? '+' : ''}${window.fmtMoney(b.balance)}</div>
-          <div class="settle-paid text-muted">已付出 ${window.fmtMoney(b.paid)}</div>
-        </div>`).join('');
-
-      // Minimal transactions
-      const cred = balances.filter(b => b.balance > 0.5).map(b => ({...b})).sort((a,b) => b.balance - a.balance);
-      const debt = balances.filter(b => b.balance < -0.5).map(b => ({...b})).sort((a,b) => a.balance - b.balance);
-      const txns = [];
-      let i = 0, j = 0;
-      while (i < cred.length && j < debt.length) {
-        const amt = Math.min(cred[i].balance, -debt[j].balance);
-        txns.push({ from: debt[j].name, to: cred[i].name, amount: Math.round(amt) });
-        cred[i].balance -= amt;
-        debt[j].balance += amt;
-        if (cred[i].balance < 0.5) i++;
-        if (debt[j].balance > -0.5) j++;
-      }
-
-      const txnList = document.getElementById('txnList');
-      if (txns.length === 0) {
-        txnList.innerHTML = '<li>✅ 所有人已平帳！</li>';
-      } else {
-        txnList.innerHTML = txns.map(t =>
-          `<li>💸 <strong>${escHtml(t.from)}</strong> 需付給 <strong>${escHtml(t.to)}</strong>：${window.fmtMoney(t.amount)}</li>`
-        ).join('');
-      }
-      card.style.display = 'block';
+      const remain = BUDGET - total;
+      const remainBar = document.getElementById('remainBar');
+      remainBar.style.display = 'flex';
+      const remainAmt = document.getElementById('remainAmt');
+      remainAmt.textContent = window.fmtMoney(remain);
+      remainAmt.style.color = remain < 0 ? 'var(--danger)' : '';
     }
 
     async function addExpense() {
