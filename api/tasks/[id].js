@@ -21,27 +21,41 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: '無效的 ID' });
   }
 
-  if (req.method !== 'PATCH') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method === 'PATCH') {
+    try {
+      const rows = await sb(`tasks?id=eq.${id}&select=user_id`);
+      if (!rows || rows.length === 0) return res.status(404).json({ error: '找不到任務' });
+      if (role !== 'SYS_ADMIN' && rows[0].user_id !== userId) {
+        return res.status(403).json({ error: '無權限修改此任務' });
+      }
 
-  try {
-    const rows = await sb(`tasks?id=eq.${id}&select=user_id`);
-    if (!rows || rows.length === 0) return res.status(404).json({ error: '找不到任務' });
-    if (role !== 'SYS_ADMIN' && rows[0].user_id !== userId) {
-      return res.status(403).json({ error: '無權限修改此任務' });
+      const { status } = req.body || {};
+      if (!status || !['pending', 'done'].includes(status)) {
+        return res.status(400).json({ error: '無效的狀態值' });
+      }
+
+      const updated = await sb(`tasks?id=eq.${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+      return res.status(200).json(updated[0]);
+    } catch (e) {
+      console.error('tasks/[id] error:', e);
+      return res.status(500).json({ error: '伺服器錯誤' });
     }
-
-    const { status } = req.body || {};
-    if (!status || !['pending', 'done'].includes(status)) {
-      return res.status(400).json({ error: '無效的狀態值' });
-    }
-
-    const updated = await sb(`tasks?id=eq.${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ status })
-    });
-    return res.status(200).json(updated[0]);
-  } catch (e) {
-    console.error('tasks/[id] error:', e);
-    return res.status(500).json({ error: '伺服器錯誤' });
   }
+
+  // 收回任務：僅 SYS_ADMIN
+  if (req.method === 'DELETE') {
+    if (role !== 'SYS_ADMIN') return res.status(403).json({ error: '僅管理員可刪除任務' });
+    try {
+      await sb(`tasks?id=eq.${id}`, { method: 'DELETE' });
+      return res.status(204).end();
+    } catch (e) {
+      console.error('tasks/[id] DELETE error:', e);
+      return res.status(500).json({ error: '伺服器錯誤' });
+    }
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 };

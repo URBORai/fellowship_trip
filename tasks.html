@@ -30,6 +30,27 @@
       <h1>任務清單</h1>
       <p id="pageDesc">我的待辦事項</p>
     </div>
+
+    <!-- 指派任務（僅 SYS_ADMIN 顯示） -->
+    <div class="card" id="assignCard" style="display:none">
+      <p class="card-title">指派任務</p>
+      <div class="form-row">
+        <div class="form-group">
+          <label>成員</label>
+          <select id="assignUser"><option>載入中…</option></select>
+        </div>
+        <div class="form-group">
+          <label>任務標題</label>
+          <input type="text" id="assignTitle" placeholder="例：準備烤肉用具">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>說明（選填）</label>
+        <input type="text" id="assignContent" placeholder="補充細節…">
+      </div>
+      <button class="btn btn-primary" id="assignBtn" onclick="assignTask()">指派任務</button>
+    </div>
+
     <div id="taskList"><div class="loading">載入中…</div></div>
   </main>
 
@@ -39,8 +60,60 @@
     if (!user) throw new Error('not authed');
     window.initNavbar('tasks.html');
 
-    if (user.role === 'SYS_ADMIN') {
+    const isAdmin = user.role === 'SYS_ADMIN';
+    if (isAdmin) {
       document.getElementById('pageDesc').textContent = '所有人的任務（Admin 視角）';
+      document.getElementById('assignCard').style.display = '';
+      loadMembers();
+    }
+
+    async function loadMembers() {
+      const sel = document.getElementById('assignUser');
+      try {
+        const res = await window.authFetch('/api/users-admin');
+        const users = await res.json();
+        if (!res.ok) throw new Error(users.error);
+        // 管理員不參加任務，只列出一般成員
+        const members = users.filter(u => u.role === 'NORMAL');
+        sel.innerHTML = members.length
+          ? members.map(u => `<option value="${u.id}">${escHtml(u.name)}</option>`).join('')
+          : '<option value="">（沒有一般成員）</option>';
+      } catch {
+        sel.innerHTML = '<option value="">載入成員失敗</option>';
+      }
+    }
+
+    async function assignTask() {
+      const user_id = document.getElementById('assignUser').value;
+      const title = document.getElementById('assignTitle').value.trim();
+      const content = document.getElementById('assignContent').value.trim();
+      if (!user_id || !title) { window.showToast('請選擇成員並填寫任務標題', 'err'); return; }
+
+      const btn = document.getElementById('assignBtn');
+      btn.disabled = true;
+      try {
+        const res = await window.authFetch('/api/tasks', {
+          method: 'POST',
+          body: JSON.stringify({ user_id, title, content })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+        document.getElementById('assignTitle').value = '';
+        document.getElementById('assignContent').value = '';
+        window.showToast('✅ 已指派任務', 'ok');
+        loadTasks();
+      } catch { window.showToast('網路錯誤', 'err'); }
+      finally { btn.disabled = false; }
+    }
+
+    async function deleteTask(id) {
+      if (!confirm('確定要刪除這個任務嗎？')) return;
+      try {
+        const res = await window.authFetch(`/api/tasks/${id}`, { method: 'DELETE' });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error, 'err'); return; }
+        window.showToast('已刪除', 'ok');
+        loadTasks();
+      } catch { window.showToast('網路錯誤', 'err'); }
     }
 
     async function loadTasks() {
@@ -112,6 +185,7 @@
             ${t.content ? `<p>${escHtml(t.content)}</p>` : ''}
           </div>
           <span class="badge ${isDone ? 'badge-done' : 'badge-pending'}" style="flex-shrink:0">${isDone ? '完成' : '待辦'}</span>
+          ${isAdmin ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;padding:0.2rem 0.4rem" onclick="deleteTask('${t.id}')">🗑️</button>` : ''}
         </div>`;
     }
 
