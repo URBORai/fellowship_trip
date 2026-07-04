@@ -123,7 +123,8 @@ git push -u origin main
 | 名稱 | 值 |
 |------|-----|
 | `SUPABASE_URL` | `https://xxxxxxxxxxxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | `eyJ...（你的 anon key）` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Settings → API → `service_role` secret（後端專用，絕不可出現在前端） |
+| `SESSION_SECRET` | 隨機字串（建議 `openssl rand -base64 32` 產生），用於簽章登入 token |
 
 設定完後重新部署（Deployments → Redeploy）。
 
@@ -131,17 +132,19 @@ git push -u origin main
 
 ## Auth 說明
 
-- 登入方式：輸入密語 → `POST /api/auth` 比對 Supabase `users` 表
-- 登入成功後將 `{ id, name, role }` 存入 `localStorage`
-- 每頁進入時檢查 `localStorage`，未登入自動導回 `login.html`
-- Admin 頁額外檢查 `role === 'admin'`
+- 登入方式：輸入密語 → `POST /api/auth` 以 bcrypt 比對 `users.passphrase_hash`
+- 登入成功後後端簽發 HMAC-SHA256 token（7 天過期），前端存入 `localStorage`（`session_token`），`{ id, name, role }` 另存供畫面顯示
+- 每個 API 請求帶 `Authorization: Bearer <token>`，後端以 `api/_session.js` 驗證簽章與過期時間
+- API 回 401 時前端自動清除登入狀態並導回 `login.html`
+- Admin 頁額外檢查 `role === 'admin'`（後端 API 亦各自驗證 role）
 - 登出時清除 `localStorage`
 
 ## 安全說明
 
 此網站設計用於小型私人群組，採用以下安全措施：
-- 密語比對在 server-side 進行
-- API 端點驗證 `x-user-id` header 是否對應真實資料庫記錄
-- 修改 / 刪除操作驗證資源擁有者
+- 密語以 bcrypt 雜湊儲存與比對，均在 server-side 進行
+- 身分由後端簽章的 token 判定，前端無法偽造 id / role
+- 修改 / 刪除操作驗證資源擁有者，ID 參數驗證 UUID 格式
+- 四張資料表已開啟 RLS 且無 policy，僅後端 service_role key 可存取
 - 所有輸出有 HTML escaping 防止 XSS
-- 請勿將 Supabase anon key 以外的 key 暴露在前端
+- `SUPABASE_SERVICE_ROLE_KEY` 與 `SESSION_SECRET` 僅存於後端環境變數，絕不可暴露在前端

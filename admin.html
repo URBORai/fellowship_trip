@@ -190,7 +190,7 @@
     async function loadUsers() {
       const el = document.getElementById('adminUsers');
       try {
-        const res = await window.authFetch('/api/users');
+        const res = await window.authFetch('/api/users-admin');
         const users = await res.json();
         if (!res.ok) throw new Error(users.error);
 

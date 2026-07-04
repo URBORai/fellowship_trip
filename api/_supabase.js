@@ -1,14 +1,14 @@
 async function sb(path, options) {
   const opts = options || {};
-  const { SUPABASE_URL, SUPABASE_ANON_KEY } = process.env;
+  const { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } = process.env;
   const method = opts.method || 'GET';
   const needReturn = ['POST', 'PATCH', 'PUT'].includes(method);
 
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     ...opts,
     headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
       'Content-Type': 'application/json',
       ...(needReturn ? { Prefer: 'return=representation' } : {}),
       ...(opts.headers || {})

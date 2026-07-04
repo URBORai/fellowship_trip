@@ -19,6 +19,7 @@
 
   window.logout = function () {
     localStorage.removeItem('user');
+    localStorage.removeItem('session_token');
     window.location.href = 'login.html';
   };
 
@@ -63,16 +64,23 @@
   };
 
   window.authFetch = async function (url, opts) {
-    const u = window.getUser();
+    const token = localStorage.getItem('session_token');
     const options = opts || {};
-    return fetch(url, {
+    const res = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        ...(u ? { 'x-user-id': u.id, 'x-user-role': u.role } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(options.headers || {})
       }
     });
+    if (res.status === 401) {
+      // token 過期或未登入：清除狀態並導向登入頁
+      localStorage.removeItem('user');
+      localStorage.removeItem('session_token');
+      window.location.href = 'login.html';
+    }
+    return res;
   };
 
   window.fmtDate = function (iso) {

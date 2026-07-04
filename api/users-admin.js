@@ -14,13 +14,14 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: '伺服器設定錯誤，請聯絡管理員' });
   }
   if (!user) return res.status(401).json({ error: '請先登入' });
+  if (user.role !== 'admin') return res.status(403).json({ error: '僅管理員可查看' });
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const users = await sb('users?select=id,name&order=name.asc');
+    const users = await sb('users?select=id,name,role&order=name.asc');
     return res.status(200).json(users);
   } catch (e) {
-    console.error('users error:', e);
+    console.error('users-admin error:', e);
     return res.status(500).json({ error: '伺服器錯誤' });
   }
 };

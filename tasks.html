@@ -70,8 +70,8 @@
             div.className = 'user-group';
             div.innerHTML = `
               <div class="user-group-title">
-                <div class="avatar" style="width:28px;height:28px;font-size:0.75rem">${name.charAt(0)}</div>
-                ${name}
+                <div class="avatar" style="width:28px;height:28px;font-size:0.75rem">${escHtml(name.charAt(0))}</div>
+                ${escHtml(name)}
                 <span class="badge badge-done">${done}/${list.length}</span>
               </div>
               ${list.map(t => taskHTML(t)).join('')}
