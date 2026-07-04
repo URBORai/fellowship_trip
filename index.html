@@ -109,7 +109,7 @@
 
   <script src="js/auth.js"></script>
   <script>
-    window.initNavbar('index.html');
+    window.initNavbar('index.html', false);
     const user = window.getUser();
     if (user && user.role === 'admin') {
       const links = document.getElementById('navLinks');

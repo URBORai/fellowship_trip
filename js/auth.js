@@ -23,13 +23,19 @@
     window.location.href = 'login.html';
   };
 
-  window.initNavbar = function (activePage) {
+  // showUser 傳 false 的頁面（公開頁）不顯示使用者/登出區塊；
+  // 其他頁面沒登入時也整塊移除，避免行動版選單展開時被 CSS 強制顯示
+  window.initNavbar = function (activePage, showUser) {
     const u = window.getUser();
     const navUser = document.getElementById('navUser');
     const nameEl = document.getElementById('userName');
-    if (u && navUser) {
-      if (nameEl) nameEl.textContent = u.name;
-      navUser.style.display = 'flex';
+    if (navUser) {
+      if (u && showUser !== false) {
+        if (nameEl) nameEl.textContent = u.name;
+        navUser.style.display = 'flex';
+      } else {
+        navUser.remove();
+      }
     }
 
     const toggle = document.getElementById('navToggle');
