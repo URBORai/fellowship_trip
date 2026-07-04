@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
 
   if (req.method === 'GET') {
-    if (!user) return res.status(401).json({ error: '請先登入' });
+    // 財務明細開放瀏覽，不需登入；新增／修改／刪除仍需登入
     try {
       const data = await sb('expenses?select=*,users(name)&order=created_at.desc');
       return res.status(200).json(data);

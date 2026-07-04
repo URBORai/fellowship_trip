@@ -107,7 +107,8 @@
     window.initNavbar('expenses.html');
 
     if (!user) {
-      document.querySelector('.card').style.display = 'none';
+      document.querySelector('.card').innerHTML =
+        '<p class="text-muted" style="margin:0">🔒 <a href="login.html">登入</a>後即可新增費用</p>';
     }
 
     Swal.fire({
