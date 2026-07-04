@@ -33,6 +33,10 @@
 
     <div class="card">
       <p class="card-title">發表留言</p>
+      <div class="form-group" id="guestNameGroup" style="display:none">
+        <label>暱稱</label>
+        <input type="text" id="guestName" placeholder="請輸入你的暱稱" maxlength="20">
+      </div>
       <div class="form-group">
         <textarea id="content" placeholder="想說什麼都可以…" rows="3"></textarea>
       </div>
@@ -50,7 +54,11 @@
   <script>
     window.initNavbar('board.html');
     const user = window.getUser();
-    if (!user) document.querySelector('.card').style.display = 'none';
+    // 訪客也能留言，但要填暱稱（記在 localStorage，下次不用重打）
+    if (!user) {
+      document.getElementById('guestNameGroup').style.display = '';
+      document.getElementById('guestName').value = localStorage.getItem('guest_name') || '';
+    }
 
     async function load() {
       const el = document.getElementById('postList');
@@ -72,8 +80,8 @@
             <div class="post-item" id="post-${p.id}">
               <div class="post-header">
                 <div style="display:flex;align-items:center;gap:0.5rem">
-                  <div class="avatar" style="width:32px;height:32px;font-size:0.8rem">${p.users ? p.users.name.charAt(0) : '?'}</div>
-                  <span class="post-author">${p.users ? escHtml(p.users.name) : '未知'}</span>
+                  <div class="avatar" style="width:32px;height:32px;font-size:0.8rem">${p.users ? p.users.name.charAt(0) : (p.guest_name ? p.guest_name.charAt(0) : '?')}</div>
+                  <span class="post-author">${p.users ? escHtml(p.users.name) : (p.guest_name ? escHtml(p.guest_name) + '（訪客）' : '未知')}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem">
                   <span class="post-meta">${window.fmtDateTime(p.created_at)}</span>
@@ -91,12 +99,21 @@
     async function postMsg() {
       const content = document.getElementById('content').value.trim();
       if (!content) { window.showToast('請輸入內容', 'err'); return; }
+
+      const body = { content };
+      if (!user) {
+        const name = document.getElementById('guestName').value.trim();
+        if (!name) { window.showToast('請輸入暱稱', 'err'); return; }
+        localStorage.setItem('guest_name', name);
+        body.guest_name = name;
+      }
+
       const btn = document.getElementById('postBtn');
       btn.disabled = true;
       try {
         const res = await window.authFetch('/api/board', {
           method: 'POST',
-          body: JSON.stringify({ content })
+          body: JSON.stringify(body)
         });
         const data = await res.json();
         if (!res.ok) { window.showToast(data.error, 'err'); return; }

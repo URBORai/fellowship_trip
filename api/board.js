@@ -26,17 +26,30 @@ module.exports = async (req, res) => {
     }
   }
 
+  // 發文開放訪客：登入者記 created_by，訪客必須自填暱稱記在 guest_name
   if (req.method === 'POST') {
-    if (!user) return res.status(401).json({ error: '請先登入' });
-    const userId = user.id;
-    const { content } = req.body || {};
+    const { content, guest_name } = req.body || {};
     if (!content || !content.trim()) {
       return res.status(400).json({ error: '請輸入內容' });
     }
+    if (content.trim().length > 500) {
+      return res.status(400).json({ error: '留言最多 500 字' });
+    }
+
+    const row = { content: content.trim() };
+    if (user) {
+      row.created_by = user.id;
+    } else {
+      const name = (guest_name || '').trim();
+      if (!name) return res.status(400).json({ error: '請輸入暱稱' });
+      if (name.length > 20) return res.status(400).json({ error: '暱稱最多 20 字' });
+      row.guest_name = name;
+    }
+
     try {
       const post = await sb('board_posts', {
         method: 'POST',
-        body: JSON.stringify({ created_by: userId, content: content.trim() })
+        body: JSON.stringify(row)
       });
       return res.status(201).json(post[0]);
     } catch (e) {
