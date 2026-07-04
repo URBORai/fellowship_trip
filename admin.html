@@ -52,11 +52,39 @@
 
     <!-- Users Tab -->
     <div class="tab-panel" id="tab-users">
+      <div class="mb-3">
+        <button class="btn btn-primary btn-sm" onclick="openAddUser()">➕ 新增成員</button>
+      </div>
       <div class="card">
         <div id="adminUsers"><div class="loading">載入中…</div></div>
       </div>
     </div>
   </main>
+
+  <div class="modal-overlay" id="userModalOverlay" style="display:none">
+    <div class="modal">
+      <h3>新增成員</h3>
+      <div class="form-group">
+        <label>姓名</label>
+        <input type="text" id="newUserName" maxlength="20" placeholder="例：小明">
+      </div>
+      <div class="form-group">
+        <label>登入密語（成員用這個登入，不可與他人重複）</label>
+        <input type="text" id="newUserPass" maxlength="50" placeholder="例：xiaoming2026">
+      </div>
+      <div class="form-group">
+        <label>權限</label>
+        <select id="newUserRole">
+          <option value="NORMAL" selected>一般成員（NORMAL）</option>
+          <option value="SYS_ADMIN">管理員（SYS_ADMIN）</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeAddUser()">取消</button>
+        <button class="btn btn-primary" id="addUserBtn" onclick="submitAddUser()">新增</button>
+      </div>
+    </div>
+  </div>
 
   <script src="js/auth.js"></script>
   <script>
@@ -202,13 +230,86 @@
             <div class="contact-item">
               <div class="avatar">${u.name.charAt(0)}</div>
               <div class="contact-info">
-                <div class="name">${escHtml(u.name)}</div>
+                <div class="name">${escHtml(u.name)}${u.id === user.id ? '（我）' : ''}</div>
                 <div class="detail">ID: ${u.id.slice(0,8)}…</div>
               </div>
-              <span class="badge ${u.role === 'SYS_ADMIN' ? 'badge-admin' : 'badge-member'}">${u.role === 'SYS_ADMIN' ? 'SYS_ADMIN' : 'NORMAL'}</span>
+              ${u.id === user.id
+                ? `<span class="badge badge-admin">SYS_ADMIN</span>`
+                : `<select data-uid="${u.id}" data-prev="${u.role}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;border:1.5px solid var(--border);border-radius:var(--radius);font-family:inherit">
+                     <option value="NORMAL" ${u.role === 'NORMAL' ? 'selected' : ''}>NORMAL</option>
+                     <option value="SYS_ADMIN" ${u.role === 'SYS_ADMIN' ? 'selected' : ''}>SYS_ADMIN</option>
+                   </select>`}
             </div>`).join('')}`;
+
+        el.querySelectorAll('select[data-uid]').forEach(sel => {
+          sel.addEventListener('change', () => changeRole(sel));
+        });
       } catch (e) {
         el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
+      }
+    }
+
+    async function changeRole(sel) {
+      const id = sel.dataset.uid;
+      const role = sel.value;
+      if (!confirm(`確定將此成員權限改為 ${role === 'SYS_ADMIN' ? '管理員' : '一般成員'}？`)) {
+        sel.value = sel.dataset.prev;
+        return;
+      }
+      try {
+        const res = await window.authFetch('/api/users-admin', {
+          method: 'PATCH',
+          body: JSON.stringify({ id, role })
+        });
+        const d = await res.json();
+        if (!res.ok) { window.showToast(d.error, 'err'); sel.value = sel.dataset.prev; return; }
+        sel.dataset.prev = role;
+        window.showToast('權限已更新', 'ok');
+      } catch {
+        window.showToast('網路錯誤', 'err');
+        sel.value = sel.dataset.prev;
+      }
+    }
+
+    function openAddUser() {
+      document.getElementById('newUserName').value = '';
+      document.getElementById('newUserPass').value = '';
+      document.getElementById('newUserRole').value = 'NORMAL';
+      document.getElementById('userModalOverlay').style.display = 'flex';
+    }
+
+    function closeAddUser() {
+      document.getElementById('userModalOverlay').style.display = 'none';
+    }
+
+    document.getElementById('userModalOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeAddUser();
+    });
+
+    async function submitAddUser() {
+      const name = document.getElementById('newUserName').value.trim();
+      const passphrase = document.getElementById('newUserPass').value.trim();
+      const role = document.getElementById('newUserRole').value;
+      if (!name) return window.showToast('請輸入姓名', 'err');
+      if (!passphrase) return window.showToast('請輸入密語', 'err');
+      if (passphrase.length < 4) return window.showToast('密語至少 4 個字', 'err');
+
+      const btn = document.getElementById('addUserBtn');
+      btn.disabled = true;
+      try {
+        const res = await window.authFetch('/api/users-admin', {
+          method: 'POST',
+          body: JSON.stringify({ name, passphrase, role })
+        });
+        const d = await res.json();
+        if (!res.ok) { window.showToast(d.error, 'err'); return; }
+        closeAddUser();
+        window.showToast(`已新增「${d.name}」，記得把密語告訴他`, 'ok');
+        loadUsers();
+      } catch {
+        window.showToast('網路錯誤', 'err');
+      } finally {
+        btn.disabled = false;
       }
     }
 

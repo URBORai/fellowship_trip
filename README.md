@@ -24,7 +24,8 @@
 │   ├── expenses/[id].js  PUT / DELETE /api/expenses/:id
 │   ├── board.js      GET / POST /api/board
 │   ├── board/[id].js DELETE /api/board/:id
-│   └── site-content.js  GET / PUT /api/site-content（首頁與行程內容）
+│   ├── site-content.js  GET / PUT /api/site-content（首頁與行程內容）
+│   └── users-admin.js   GET / POST / PATCH /api/users-admin（成員管理，僅 SYS_ADMIN）
 ├── schema.sql        資料庫建表 SQL
 ├── .env.example      環境變數範本
 └── vercel.json       Vercel 設定
@@ -150,6 +151,15 @@ git push -u origin main
 - API：`GET /api/site-content?key=home|schedule`（公開）、`PUT /api/site-content`（僅 SYS_ADMIN）
 - 啟用前請先在 Supabase SQL Editor 執行
   `supabase/migrations/20260705150000_add_site_content.sql` 建立資料表
+
+## 成員管理（管理員）
+
+- Admin 後台「成員列表」分頁可直接新增成員與變更權限，不必再進 Supabase 下 SQL：
+  - **新增成員**：填姓名、登入密語（不可與他人重複）、權限（NORMAL / SYS_ADMIN），
+    後端會同步寫入明文密語（現行登入比對用）與 bcrypt 雜湊
+  - **變更權限**：每位成員旁的下拉選單可切換 NORMAL ↔ SYS_ADMIN；
+    不能修改自己的權限（避免把自己降級後被鎖在後台外）
+- API：`GET / POST / PATCH /api/users-admin`，三者皆僅 SYS_ADMIN 可呼叫
 
 ## 安全說明
 
