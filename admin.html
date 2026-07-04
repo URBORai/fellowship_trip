@@ -205,7 +205,7 @@
                 <div class="name">${escHtml(u.name)}</div>
                 <div class="detail">ID: ${u.id.slice(0,8)}…</div>
               </div>
-              <span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-member'}">${u.role === 'admin' ? 'Admin' : '成員'}</span>
+              <span class="badge ${u.role === 'SYS_ADMIN' ? 'badge-admin' : 'badge-member'}">${u.role === 'SYS_ADMIN' ? 'SYS_ADMIN' : 'NORMAL'}</span>
             </div>`).join('')}`;
       } catch (e) {
         el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;

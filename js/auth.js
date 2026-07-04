@@ -13,7 +13,7 @@
   window.requireAdmin = function () {
     const u = window.requireAuth();
     if (!u) return null;
-    if (u.role !== 'admin') { window.location.href = 'index.html'; return null; }
+    if (u.role !== 'SYS_ADMIN') { window.location.href = 'index.html'; return null; }
     return u;
   };
 

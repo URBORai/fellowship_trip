@@ -111,7 +111,7 @@
   <script>
     window.initNavbar('index.html', false);
     const user = window.getUser();
-    if (user && user.role === 'admin') {
+    if (user && user.role === 'SYS_ADMIN') {
       const links = document.getElementById('navLinks');
       const a = document.createElement('a');
       a.href = '/admin.html';

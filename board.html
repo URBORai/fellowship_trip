@@ -66,7 +66,7 @@
 
         el.innerHTML = posts.map(p => {
           const isOwner = user && p.created_by === user.id;
-          const isAdmin = user && user.role === 'admin';
+          const isAdmin = user && user.role === 'SYS_ADMIN';
           const canDelete = isOwner || isAdmin;
           return `
             <div class="post-item" id="post-${p.id}">

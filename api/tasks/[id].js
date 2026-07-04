@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
   try {
     const rows = await sb(`tasks?id=eq.${id}&select=user_id`);
     if (!rows || rows.length === 0) return res.status(404).json({ error: '找不到任務' });
-    if (role !== 'admin' && rows[0].user_id !== userId) {
+    if (role !== 'SYS_ADMIN' && rows[0].user_id !== userId) {
       return res.status(403).json({ error: '無權限修改此任務' });
     }
 

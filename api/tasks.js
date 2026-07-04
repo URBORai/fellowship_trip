@@ -20,7 +20,7 @@ module.exports = async (req, res) => {
 
   try {
     let query = 'tasks?select=*,users(name)&order=user_id.asc,status.asc,created_at.asc';
-    if (role !== 'admin') query += `&user_id=eq.${userId}`;
+    if (role !== 'SYS_ADMIN') query += `&user_id=eq.${userId}`;
     const tasks = await sb(query);
     return res.status(200).json(tasks);
   } catch (e) {

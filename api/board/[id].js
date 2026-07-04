@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   try {
     const rows = await sb(`board_posts?id=eq.${id}&select=created_by`);
     if (!rows || rows.length === 0) return res.status(404).json({ error: '找不到留言' });
-    if (role !== 'admin' && rows[0].created_by !== userId) {
+    if (role !== 'SYS_ADMIN' && rows[0].created_by !== userId) {
       return res.status(403).json({ error: '無權限刪除此留言' });
     }
     await sb(`board_posts?id=eq.${id}`, { method: 'DELETE' });

@@ -19,6 +19,7 @@
       </div>
       <button type="submit" class="btn btn-primary btn-full" id="submitBtn">登入</button>
     </form>
+    <p style="text-align:center;margin-top:1rem;font-size:0.875rem"><a href="index.html">← 回首頁</a></p>
   </div>
 
   <script src="js/auth.js"></script>
@@ -52,7 +53,7 @@
 
         localStorage.setItem('session_token', data.token);
         localStorage.setItem('user', JSON.stringify({ id: data.id, name: data.name, role: data.role }));
-        window.location.href = data.role === 'admin' ? 'admin.html' : 'index.html';
+        window.location.href = data.role === 'SYS_ADMIN' ? 'admin.html' : 'index.html';
       } catch {
         errEl.textContent = '網路錯誤，請稍後再試';
         errEl.style.display = 'block';

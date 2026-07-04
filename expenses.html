@@ -151,7 +151,7 @@
       }
 
       el.innerHTML = allExpenses.map(e => {
-        const isAdmin = user && user.role === 'admin';
+        const isAdmin = user && user.role === 'SYS_ADMIN';
         return `
           <div class="expense-row">
             <div>

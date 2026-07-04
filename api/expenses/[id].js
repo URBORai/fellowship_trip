@@ -16,7 +16,7 @@ module.exports = async (req, res) => {
   }
   const { id } = req.query;
   if (!user) return res.status(401).json({ error: '請先登入' });
-  if (user.role !== 'admin') return res.status(403).json({ error: '僅管理員可修改費用記錄' });
+  if (user.role !== 'SYS_ADMIN') return res.status(403).json({ error: '僅管理員可修改費用記錄' });
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id || '')) {
     return res.status(400).json({ error: '無效的 ID' });
   }

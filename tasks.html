@@ -39,7 +39,7 @@
     if (!user) throw new Error('not authed');
     window.initNavbar('tasks.html');
 
-    if (user.role === 'admin') {
+    if (user.role === 'SYS_ADMIN') {
       document.getElementById('pageDesc').textContent = '所有人的任務（Admin 視角）';
     }
 
@@ -55,7 +55,7 @@
           return;
         }
 
-        if (user.role === 'admin') {
+        if (user.role === 'SYS_ADMIN') {
           // Group by user
           const groups = {};
           tasks.forEach(t => {

@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
     return res.status(500).json({ error: '伺服器設定錯誤，請聯絡管理員' });
   }
   if (!user) return res.status(401).json({ error: '請先登入' });
-  if (user.role !== 'admin') return res.status(403).json({ error: '僅管理員可查看' });
+  if (user.role !== 'SYS_ADMIN') return res.status(403).json({ error: '僅管理員可查看' });
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
