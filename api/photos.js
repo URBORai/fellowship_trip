@@ -12,7 +12,8 @@ async function storage(path, opts = {}) {
     headers: {
       apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-      'Content-Type': 'application/json',
+      // 沒有 body 的請求（如 DELETE）不能帶 Content-Type: json，Storage 伺服器會回 400
+      ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
       ...(opts.headers || {})
     }
   });
