@@ -150,7 +150,8 @@ button { font-family: inherit; }
      Because navbar is sticky (not fixed), the page content
      naturally moves down — no overlap, no JS padding tricks. */
   .nav-container {
-    height: var(--nav-h);
+    min-height: var(--nav-h);
+    height: auto;
     flex-wrap: wrap;
     padding: 0 0.75rem;
     gap: 0;
@@ -189,6 +190,8 @@ button { font-family: inherit; }
   }
 
   .nav-user {
+    /* Beat the inline display:flex set by initNavbar when logged in */
+    display: none !important;
     width: 100%;
     order: 11;
     padding: 0.25rem 0.25rem 0.75rem;
