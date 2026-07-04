@@ -842,3 +842,106 @@ body.login-body {
 }
 
 .total-bar .amount { font-size: 1.1rem; color: var(--primary); }
+
+/* ====== 內容編輯（首頁 / 行程，僅管理員可見） ====== */
+.edit-btn {
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.25rem 0.65rem;
+  border-radius: 99px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-family: inherit;
+  min-height: 32px;
+}
+
+.edit-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.card-head h2 { margin-bottom: 0; }
+
+.modal.modal-wide { max-width: 100%; }
+
+@media (min-width: 640px) {
+  .modal.modal-wide { max-width: 560px; }
+}
+
+.modal-scroll {
+  max-height: 60vh;
+  overflow-y: auto;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
+}
+
+.editor-item {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: var(--bg);
+}
+
+.editor-item .form-group { margin-bottom: 0.6rem; }
+.editor-item .form-group:last-child { margin-bottom: 0; }
+
+.editor-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.6rem;
+}
+
+.editor-item-head .idx {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.editor-item-tools { display: flex; gap: 0.25rem; }
+
+.editor-tool-btn {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-family: inherit;
+}
+
+.editor-tool-btn:hover { border-color: var(--primary); color: var(--primary); }
+.editor-tool-btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+.editor-tool-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.editor-check {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.editor-check input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}

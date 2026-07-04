@@ -26,98 +26,310 @@
   </nav>
 
   <main class="container">
-    <div class="hero">
-      <h1>🎉 TJC 板橋團契送舊出遊</h1>
-      <p>三天兩夜，一起留下美好回憶！</p>
-    </div>
-
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="label">📅 出發日期</div>
-        <div class="value">2026 年 07 月 10 日</div>
-      </div>
-      <div class="info-item">
-        <div class="label">📍 目的地</div>
-        <div class="value"> 新竹關西 </div>
-      </div>
-      <div class="info-item">
-        <div class="label">🌙 住宿</div>
-        <div class="value">彥霖家</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>🚗 車輛資訊</h2>
-      <div style="list-style:none">
-        <div class="contact-item">
-          <div class="avatar">A</div>
-          <div class="contact-info">
-            <div class="name">紹威 車</div>
-            <div class="detail">（車牌）</div>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="avatar">B</div>
-          <div class="contact-info">
-            <div class="name">杰聖 車</div>
-            <div class="detail">（車牌）</div>
-          </div>          
-        </div>
-        <div class="contact-item">
-          <div class="avatar">C</div>
-          <div class="contact-info">
-            <div class="name">晨睿 車</div>
-            <div class="detail">（車牌）</div>
-          </div>
-        </div>
-        <div class="contact-item">
-          <div class="avatar">備</div>
-          <div class="contact-info">
-            <div class="name">彥霖 車（備用）</div>
-            <div class="detail">（車牌）</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>📋 注意事項</h2>
-      <ul class="notice-list">
-        <li>請準時集合，以免影響整體行程</li>
-        <li>烤肉食材大家要一起採購，要在群組回報更新</li>
-        <li>攜帶個人盥洗用品、換洗衣物（兩套）</li>
-        <li>防曬乳、太陽眼鏡、帽子（戶外活動必備）</li>
-        <li>個人藥品（暈車藥、腸胃藥等）請自備</li>
-        <li>行動電源、充電線請記得帶</li>
-        <li>若有任何狀況請提前告知負責人</li>
-        <li>保持環境整潔</li>
-      </ul>
-    </div>
-
-    <div class="card">
-      <h2>🛒 建議攜帶清單</h2>
-      <ul class="notice-list">
-        <li>健保卡（以防萬一）</li>
-        <li>現金（部分地方不收信用卡）</li>
-        <li>雨傘或雨衣</li>
-        <li>個人零食、飲料</li>
-        <li>相機或手機（記錄美好時光）</li>
-        <li>薄外套（晚上可能較涼）</li>
-      </ul>
-    </div>
+    <div id="homeContent"></div>
   </main>
+
+  <div class="modal-overlay" id="modalOverlay" style="display:none">
+    <div class="modal modal-wide" id="modalBox">
+      <h3 id="modalTitle"></h3>
+      <div class="modal-scroll" id="modalBody"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" id="modalSaveBtn">儲存</button>
+      </div>
+    </div>
+  </div>
 
   <script src="js/auth.js"></script>
   <script>
     window.initNavbar('index.html', false);
     const user = window.getUser();
-    if (user && user.role === 'SYS_ADMIN') {
+    const isAdmin = !!(user && user.role === 'SYS_ADMIN');
+    if (isAdmin) {
       const links = document.getElementById('navLinks');
       const a = document.createElement('a');
       a.href = '/admin.html';
       a.textContent = 'Admin';
       links.appendChild(a);
     }
+
+    // 預設內容：site_content 表沒有資料（或 API 失敗）時顯示；
+    // 管理員第一次儲存後，以資料庫內容為準
+    const DEFAULT_HOME = {
+      hero: {
+        title: '🎉 TJC 板橋團契送舊出遊',
+        subtitle: '三天兩夜，一起留下美好回憶！'
+      },
+      info: [
+        { label: '📅 出發日期', value: '2026 年 07 月 10 日' },
+        { label: '📍 目的地', value: '新竹關西' },
+        { label: '🌙 住宿', value: '彥霖家' }
+      ],
+      cars: [
+        { badge: 'A', name: '紹威 車', detail: '（車牌）' },
+        { badge: 'B', name: '杰聖 車', detail: '（車牌）' },
+        { badge: 'C', name: '晨睿 車', detail: '（車牌）' },
+        { badge: '備', name: '彥霖 車（備用）', detail: '（車牌）' }
+      ],
+      notices: [
+        '請準時集合，以免影響整體行程',
+        '烤肉食材大家要一起採購，要在群組回報更新',
+        '攜帶個人盥洗用品、換洗衣物（兩套）',
+        '防曬乳、太陽眼鏡、帽子（戶外活動必備）',
+        '個人藥品（暈車藥、腸胃藥等）請自備',
+        '行動電源、充電線請記得帶',
+        '若有任何狀況請提前告知負責人',
+        '保持環境整潔'
+      ],
+      packing: [
+        '健保卡（以防萬一）',
+        '現金（部分地方不收信用卡）',
+        '雨傘或雨衣',
+        '個人零食、飲料',
+        '相機或手機（記錄美好時光）',
+        '薄外套（晚上可能較涼）'
+      ]
+    };
+
+    let data = JSON.parse(JSON.stringify(DEFAULT_HOME));
+
+    function escHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function editBtn(section, label) {
+      if (!isAdmin) return '';
+      return `<button class="edit-btn" onclick="openEditor('${section}')">✏️ ${label || '編輯'}</button>`;
+    }
+
+    function render() {
+      const el = document.getElementById('homeContent');
+      el.innerHTML = `
+        <div class="hero" style="position:relative">
+          <h1>${escHtml(data.hero.title)}</h1>
+          <p>${escHtml(data.hero.subtitle)}</p>
+          ${isAdmin ? `<div class="mt-3">${editBtn('hero')}</div>` : ''}
+        </div>
+
+        <div class="info-grid">
+          ${data.info.map(i => `
+            <div class="info-item">
+              <div class="label">${escHtml(i.label)}</div>
+              <div class="value">${escHtml(i.value)}</div>
+            </div>`).join('')}
+        </div>
+        ${isAdmin ? `<div class="mb-3">${editBtn('info', '編輯活動資訊')}</div>` : ''}
+
+        <div class="card">
+          <div class="card-head"><h2>🚗 車輛資訊</h2>${editBtn('cars')}</div>
+          <div class="mt-3">
+            ${data.cars.map(c => `
+              <div class="contact-item">
+                <div class="avatar">${escHtml(c.badge)}</div>
+                <div class="contact-info">
+                  <div class="name">${escHtml(c.name)}</div>
+                  <div class="detail">${escHtml(c.detail)}</div>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>📋 注意事項</h2>${editBtn('notices')}</div>
+          <ul class="notice-list">
+            ${data.notices.map(n => `<li>${escHtml(n)}</li>`).join('')}
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>🛒 建議攜帶清單</h2>${editBtn('packing')}</div>
+          <ul class="notice-list">
+            ${data.packing.map(n => `<li>${escHtml(n)}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+
+    // ====== 讀取資料庫內容 ======
+    async function load() {
+      try {
+        const res = await fetch('/api/site-content?key=home');
+        if (!res.ok) return;
+        const body = await res.json();
+        if (body && body.content) {
+          // 與預設值淺合併，避免資料缺少欄位時整頁掛掉
+          data = Object.assign({}, JSON.parse(JSON.stringify(DEFAULT_HOME)), body.content);
+          render();
+        }
+      } catch (e) {
+        // API 失敗時維持預設內容
+        console.error('載入首頁內容失敗：', e);
+      }
+    }
+
+    // ====== 編輯功能（僅管理員） ======
+    let draft = null;
+    let editingSection = null;
+
+    function openEditor(section) {
+      editingSection = section;
+      draft = JSON.parse(JSON.stringify(data));
+      const titleMap = {
+        hero: '編輯標題區',
+        info: '編輯活動資訊',
+        cars: '編輯車輛資訊',
+        notices: '編輯注意事項',
+        packing: '編輯建議攜帶清單'
+      };
+      document.getElementById('modalTitle').textContent = titleMap[section];
+      renderEditor();
+      document.getElementById('modalOverlay').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').style.display = 'none';
+      draft = null;
+      editingSection = null;
+    }
+
+    document.getElementById('modalOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeModal();
+    });
+
+    function renderEditor() {
+      const body = document.getElementById('modalBody');
+      if (editingSection === 'hero') {
+        body.innerHTML = `
+          <div class="form-group">
+            <label>主標題</label>
+            <input type="text" id="f_title" value="${escHtml(draft.hero.title)}" maxlength="50">
+          </div>
+          <div class="form-group">
+            <label>副標題</label>
+            <input type="text" id="f_subtitle" value="${escHtml(draft.hero.subtitle)}" maxlength="80">
+          </div>`;
+      } else if (editingSection === 'info') {
+        body.innerHTML = draft.info.map((item, i) => `
+          <div class="editor-item">
+            <div class="editor-item-head">
+              <span class="idx">項目 ${i + 1}</span>
+              <div class="editor-item-tools">${toolBtns('info', i, draft.info.length)}</div>
+            </div>
+            <div class="form-group">
+              <label>標籤（可含表情符號）</label>
+              <input type="text" data-list="info" data-i="${i}" data-f="label" value="${escHtml(item.label)}" maxlength="30">
+            </div>
+            <div class="form-group">
+              <label>內容</label>
+              <input type="text" data-list="info" data-i="${i}" data-f="value" value="${escHtml(item.value)}" maxlength="50">
+            </div>
+          </div>`).join('') +
+          `<button class="btn btn-outline btn-sm btn-full" onclick="addItem('info')">➕ 新增項目</button>`;
+      } else if (editingSection === 'cars') {
+        body.innerHTML = draft.cars.map((c, i) => `
+          <div class="editor-item">
+            <div class="editor-item-head">
+              <span class="idx">車輛 ${i + 1}</span>
+              <div class="editor-item-tools">${toolBtns('cars', i, draft.cars.length)}</div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>代號（1-2 字）</label>
+                <input type="text" data-list="cars" data-i="${i}" data-f="badge" value="${escHtml(c.badge)}" maxlength="2">
+              </div>
+              <div class="form-group">
+                <label>名稱</label>
+                <input type="text" data-list="cars" data-i="${i}" data-f="name" value="${escHtml(c.name)}" maxlength="30">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>說明（車牌等）</label>
+              <input type="text" data-list="cars" data-i="${i}" data-f="detail" value="${escHtml(c.detail)}" maxlength="50">
+            </div>
+          </div>`).join('') +
+          `<button class="btn btn-outline btn-sm btn-full" onclick="addItem('cars')">➕ 新增車輛</button>`;
+      } else {
+        // notices / packing：一行一項
+        const list = draft[editingSection];
+        body.innerHTML = `
+          <div class="form-group">
+            <label>一行一個項目</label>
+            <textarea id="f_lines" rows="10">${escHtml(list.join('\n'))}</textarea>
+          </div>`;
+      }
+
+      body.querySelectorAll('input[data-list]').forEach(inp => {
+        inp.addEventListener('input', () => {
+          draft[inp.dataset.list][+inp.dataset.i][inp.dataset.f] = inp.value;
+        });
+      });
+    }
+
+    function toolBtns(list, i, len) {
+      return `
+        <button class="editor-tool-btn" onclick="moveItem('${list}',${i},-1)" ${i === 0 ? 'disabled' : ''} title="上移">↑</button>
+        <button class="editor-tool-btn" onclick="moveItem('${list}',${i},1)" ${i === len - 1 ? 'disabled' : ''} title="下移">↓</button>
+        <button class="editor-tool-btn danger" onclick="removeItem('${list}',${i})" title="刪除">✕</button>`;
+    }
+
+    function addItem(list) {
+      if (list === 'info') draft.info.push({ label: '', value: '' });
+      if (list === 'cars') draft.cars.push({ badge: '', name: '', detail: '' });
+      renderEditor();
+    }
+
+    function removeItem(list, i) {
+      draft[list].splice(i, 1);
+      renderEditor();
+    }
+
+    function moveItem(list, i, dir) {
+      const arr = draft[list];
+      const j = i + dir;
+      if (j < 0 || j >= arr.length) return;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      renderEditor();
+    }
+
+    document.getElementById('modalSaveBtn').addEventListener('click', async () => {
+      if (editingSection === 'hero') {
+        draft.hero.title = document.getElementById('f_title').value.trim();
+        draft.hero.subtitle = document.getElementById('f_subtitle').value.trim();
+        if (!draft.hero.title) return showToast('請輸入主標題', 'err');
+      } else if (editingSection === 'info' || editingSection === 'cars') {
+        draft[editingSection] = draft[editingSection].filter(item =>
+          Object.values(item).some(v => String(v).trim() !== ''));
+      } else {
+        draft[editingSection] = document.getElementById('f_lines').value
+          .split('\n').map(s => s.trim()).filter(Boolean);
+      }
+      await save(draft);
+    });
+
+    async function save(newData) {
+      const btn = document.getElementById('modalSaveBtn');
+      btn.disabled = true;
+      try {
+        const res = await authFetch('/api/site-content', {
+          method: 'PUT',
+          body: JSON.stringify({ key: 'home', content: newData })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || '儲存失敗');
+        data = newData;
+        render();
+        closeModal();
+        showToast('已儲存', 'ok');
+      } catch (e) {
+        showToast(e.message || '儲存失敗', 'err');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    render();
+    load();
   </script>
 </body>
 </html>

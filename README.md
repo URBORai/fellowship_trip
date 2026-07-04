@@ -23,7 +23,8 @@
 │   ├── expenses.js   GET / POST /api/expenses
 │   ├── expenses/[id].js  PUT / DELETE /api/expenses/:id
 │   ├── board.js      GET / POST /api/board
-│   └── board/[id].js DELETE /api/board/:id
+│   ├── board/[id].js DELETE /api/board/:id
+│   └── site-content.js  GET / PUT /api/site-content（首頁與行程內容）
 ├── schema.sql        資料庫建表 SQL
 ├── .env.example      環境變數範本
 └── vercel.json       Vercel 設定
@@ -138,6 +139,17 @@ git push -u origin main
 - API 回 401 時前端自動清除登入狀態並導回 `login.html`
 - Admin 頁額外檢查 `role === 'admin'`（後端 API 亦各自驗證 role）
 - 登出時清除 `localStorage`
+
+## 首頁 / 行程內容編輯（管理員）
+
+- 首頁（`index.html`）與行程頁（`schedule.html`）的內容存於 `site_content` 表（JSON），
+  頁面內建預設內容，資料庫沒有資料時顯示預設值
+- 管理員（SYS_ADMIN）登入後，兩頁會出現「✏️ 編輯」按鈕，可直接在頁面上修改：
+  - 首頁：標題區、活動資訊、車輛資訊、注意事項、建議攜帶清單
+  - 行程：頁面標題、每天的行程項目（可新增／刪除／排序）、新增或刪除整天
+- API：`GET /api/site-content?key=home|schedule`（公開）、`PUT /api/site-content`（僅 SYS_ADMIN）
+- 啟用前請先在 Supabase SQL Editor 執行
+  `supabase/migrations/20260705150000_add_site_content.sql` 建立資料表
 
 ## 安全說明
 
