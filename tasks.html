@@ -20,8 +20,32 @@
       background: rgba(0,0,0,0.55); color: #fff; border: none; padding: 0.25rem 0.45rem;
     }
     .photo-empty { cursor: pointer; text-align: center; color: #9ca3af; }
-    .mini-slot { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; display: block; }
+    .mini-slot { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; display: block; cursor: pointer; }
     .mini-slot-empty { width: 36px; height: 36px; border: 1.5px dashed #d1d5db; border-radius: 6px; }
+
+    /* 幻燈片（管理員全螢幕瀏覽全員照片） */
+    .lightbox {
+      position: fixed; inset: 0; z-index: 1000; background: rgba(10,10,12,0.97);
+      display: none; flex-direction: column;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox-top {
+      display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+      padding: max(0.75rem, env(safe-area-inset-top, 0px)) 1rem 0.5rem; color: #fff;
+    }
+    .lightbox-caption { font-weight: 700; font-size: 1.05rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lightbox-counter { color: rgba(255,255,255,0.65); font-size: 0.85rem; flex-shrink: 0; }
+    .lightbox-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1rem; }
+    .lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+    .lightbox-bottom {
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      padding: 0.6rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
+    }
+    .lightbox-btn {
+      background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 99px; padding: 0.5rem 1.1rem; font-size: 1rem; cursor: pointer;
+    }
+    .lightbox-btn:hover { background: rgba(255,255,255,0.22); }
   </style>
 </head>
 <body>
@@ -61,7 +85,10 @@
 
     <!-- 全員照片繳交狀況（僅 SYS_ADMIN 顯示） -->
     <div class="card" id="photoOverviewCard" style="display:none">
-      <p class="card-title">全員照片繳交狀況</p>
+      <div class="flex-between mb-3">
+        <p class="card-title" style="margin:0">全員照片繳交狀況</p>
+        <button class="btn btn-primary btn-sm" onclick="openSlideshow(0)">▶ 幻燈片播放</button>
+      </div>
       <div id="photoOverview"><div class="loading">載入中…</div></div>
     </div>
 
@@ -87,6 +114,23 @@
 
     <div id="taskList"><div class="loading">載入中…</div></div>
   </main>
+
+  <!-- 幻燈片燈箱（管理員） -->
+  <div class="lightbox" id="lightbox">
+    <div class="lightbox-top">
+      <div class="lightbox-caption" id="lbCaption"></div>
+      <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
+        <span class="lightbox-counter" id="lbCounter"></span>
+        <button class="lightbox-btn" style="padding:0.35rem 0.8rem" onclick="closeSlideshow()" title="關閉">✕</button>
+      </div>
+    </div>
+    <div class="lightbox-stage"><img id="lbImg" alt=""></div>
+    <div class="lightbox-bottom">
+      <button class="lightbox-btn" onclick="stepSlide(-1)" title="上一張">←</button>
+      <button class="lightbox-btn" id="lbPlayBtn" onclick="toggleAutoplay()" title="自動播放">▶ 自動播放</button>
+      <button class="lightbox-btn" onclick="stepSlide(1)" title="下一張">→</button>
+    </div>
+  </div>
 
   <script src="js/auth.js"></script>
   <script>
@@ -191,6 +235,9 @@
         const res = await window.authFetch('/api/photos?all=1');
         const list = await res.json();
         if (!res.ok) throw new Error(list.error);
+
+        // 把所有人的照片攤平成幻燈片清單，縮圖點擊直接跳到那一張
+        slideshowPhotos = [];
         el.innerHTML = list.map(u => {
           const c = Object.keys(u.slots).length;
           return `
@@ -198,9 +245,11 @@
               <div class="avatar">${escHtml(u.name.charAt(0))}</div>
               <div class="contact-info"><div class="name">${escHtml(u.name)}</div></div>
               <div style="display:flex;gap:4px;align-items:center">
-                ${[1, 2, 3].map(n => u.slots[n]
-                  ? `<a href="${u.slots[n]}" target="_blank"><img class="mini-slot" src="${u.slots[n]}"></a>`
-                  : '<div class="mini-slot-empty"></div>').join('')}
+                ${[1, 2, 3].map(n => {
+                  if (!u.slots[n]) return '<div class="mini-slot-empty"></div>';
+                  const idx = slideshowPhotos.push({ name: u.name, slot: n, url: u.slots[n] }) - 1;
+                  return `<img class="mini-slot" src="${u.slots[n]}" onclick="openSlideshow(${idx})">`;
+                }).join('')}
                 <span class="badge ${c === 3 ? 'badge-done' : 'badge-pending'}" style="margin-left:6px">${c}/3</span>
               </div>
             </div>`;
@@ -209,6 +258,65 @@
         el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
       }
     }
+
+    // ===== 幻燈片（全螢幕瀏覽全員照片） =====
+    let slideshowPhotos = [];
+    let slideIdx = 0;
+    let slideTimer = null;
+
+    function openSlideshow(idx) {
+      if (!slideshowPhotos.length) { window.showToast('目前還沒有任何照片', 'err'); return; }
+      slideIdx = Math.min(Math.max(idx || 0, 0), slideshowPhotos.length - 1);
+      const lb = document.getElementById('lightbox');
+      lb.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      renderSlide();
+      // 盡量進入真正的全螢幕；不支援（如 iPhone Safari）就維持滿版覆蓋
+      if (lb.requestFullscreen) lb.requestFullscreen().catch(() => {});
+    }
+
+    function closeSlideshow() {
+      stopAutoplay();
+      document.getElementById('lightbox').classList.remove('open');
+      document.body.style.overflow = '';
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    }
+
+    function renderSlide() {
+      const p = slideshowPhotos[slideIdx];
+      document.getElementById('lbImg').src = p.url;
+      document.getElementById('lbCaption').textContent = `${p.name} — 照片 ${p.slot}`;
+      document.getElementById('lbCounter').textContent = `${slideIdx + 1} / ${slideshowPhotos.length}`;
+      // 預載下一張，播放時比較順
+      const next = slideshowPhotos[(slideIdx + 1) % slideshowPhotos.length];
+      if (next) { const img = new Image(); img.src = next.url; }
+    }
+
+    function stepSlide(step) {
+      const len = slideshowPhotos.length;
+      if (!len) return;
+      slideIdx = (slideIdx + step + len) % len;
+      renderSlide();
+    }
+
+    function toggleAutoplay() {
+      if (slideTimer) { stopAutoplay(); return; }
+      slideTimer = setInterval(() => stepSlide(1), 3500);
+      document.getElementById('lbPlayBtn').textContent = '⏸ 暫停';
+    }
+
+    function stopAutoplay() {
+      if (slideTimer) { clearInterval(slideTimer); slideTimer = null; }
+      document.getElementById('lbPlayBtn').textContent = '▶ 自動播放';
+    }
+
+    document.addEventListener('keydown', e => {
+      if (!document.getElementById('lightbox').classList.contains('open')) return;
+      if (e.key === 'Escape') closeSlideshow();
+      else if (e.key === 'ArrowRight') stepSlide(1);
+      else if (e.key === 'ArrowLeft') stepSlide(-1);
+      else if (e.key === ' ') { e.preventDefault(); toggleAutoplay(); }
+    });
 
     async function loadMembers() {
       const sel = document.getElementById('assignUser');
