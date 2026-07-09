@@ -121,6 +121,7 @@
       <div class="lightbox-caption" id="lbCaption"></div>
       <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
         <span class="lightbox-counter" id="lbCounter"></span>
+        <button class="lightbox-btn" style="padding:0.35rem 0.8rem" id="lbFsBtn" onclick="toggleFullscreen()" title="切換全螢幕">⛶ 全螢幕</button>
         <button class="lightbox-btn" style="padding:0.35rem 0.8rem" onclick="closeSlideshow()" title="關閉幻燈片">✕ 關閉</button>
       </div>
     </div>
@@ -295,15 +296,43 @@
       lb.classList.add('open');
       document.body.style.overflow = 'hidden';
       renderSlide();
-      // 盡量進入真正的全螢幕；不支援（如 iPhone Safari）就維持滿版覆蓋
-      if (lb.requestFullscreen) lb.requestFullscreen().catch(() => {});
     }
 
     function closeSlideshow() {
       stopAutoplay();
       document.getElementById('lightbox').classList.remove('open');
       document.body.style.overflow = '';
-      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      if (fsElement()) exitFs();
+    }
+
+    // ===== 全螢幕切換（含 Safari 的 webkit 前綴） =====
+    function fsElement() {
+      return document.fullscreenElement || document.webkitFullscreenElement || null;
+    }
+
+    function exitFs() {
+      if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+
+    function toggleFullscreen() {
+      const lb = document.getElementById('lightbox');
+      if (fsElement()) { exitFs(); return; }
+      if (lb.requestFullscreen) lb.requestFullscreen().catch(() => window.showToast('此裝置不支援全螢幕', 'err'));
+      else if (lb.webkitRequestFullscreen) lb.webkitRequestFullscreen();
+      else window.showToast('此裝置不支援全螢幕', 'err');
+    }
+
+    function updateFsBtn() {
+      document.getElementById('lbFsBtn').textContent = fsElement() ? '⛶ 離開全螢幕' : '⛶ 全螢幕';
+    }
+    document.addEventListener('fullscreenchange', updateFsBtn);
+    document.addEventListener('webkitfullscreenchange', updateFsBtn);
+
+    // 完全不支援全螢幕的裝置（如 iPhone Safari）就把按鈕藏起來
+    if (!document.getElementById('lightbox').requestFullscreen &&
+        !document.getElementById('lightbox').webkitRequestFullscreen) {
+      document.getElementById('lbFsBtn').style.display = 'none';
     }
 
     function renderSlide() {
@@ -340,6 +369,7 @@
       else if (e.key === 'ArrowRight') stepSlide(1);
       else if (e.key === 'ArrowLeft') stepSlide(-1);
       else if (e.key === ' ') { e.preventDefault(); toggleAutoplay(); }
+      else if (e.key === 'f' || e.key === 'F') toggleFullscreen();
     });
 
     // 燈箱內更換目前這張照片（管理員可換任何人的）
