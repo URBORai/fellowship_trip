@@ -156,8 +156,8 @@
               <div class="expense-amount">${window.fmtMoney(e.amount)}</div>
               ${isAdmin ? `
                 <div class="expense-actions">
-                  <button class="btn btn-ghost btn-sm" onclick="openEdit('${e.id}')">✏️</button>
-                  <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteExpense('${e.id}')">🗑️</button>
+                  <button class="btn btn-ghost btn-sm" onclick="openEdit('${e.id}')">✏️ 編輯</button>
+                  <button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteExpense('${e.id}')">🗑️ 刪除</button>
                 </div>` : ''}
             </div>
           </div>`;

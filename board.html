@@ -87,8 +87,8 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem">
                   <span class="post-meta">${window.fmtDateTime(p.created_at)}</span>
-                  ${isAdmin ? `<button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem" onclick="editPost('${p.id}')">✏️</button>` : ''}
-                  ${canDelete ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️</button>` : ''}
+                  ${isAdmin ? `<button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem" onclick="editPost('${p.id}')">✏️ 編輯</button>` : ''}
+                  ${canDelete ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️ 刪除</button>` : ''}
                 </div>
               </div>
               <div class="post-content" id="postContent-${p.id}">${escHtml(p.content)}</div>

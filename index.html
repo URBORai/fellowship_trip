@@ -270,7 +270,7 @@
       return `
         <button class="editor-tool-btn" onclick="moveItem('${list}',${i},-1)" ${i === 0 ? 'disabled' : ''} title="上移">↑</button>
         <button class="editor-tool-btn" onclick="moveItem('${list}',${i},1)" ${i === len - 1 ? 'disabled' : ''} title="下移">↓</button>
-        <button class="editor-tool-btn danger" onclick="removeItem('${list}',${i})" title="刪除">✕</button>`;
+        <button class="editor-tool-btn danger" style="width:auto;padding:0 0.5rem" onclick="removeItem('${list}',${i})" title="刪除">✕ 刪除</button>`;
     }
 
     function addItem(list) {

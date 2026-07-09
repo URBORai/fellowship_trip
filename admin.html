@@ -210,7 +210,7 @@
               </div>
               <div style="display:flex;align-items:center;gap:0.5rem">
                 <span class="post-meta">${window.fmtDateTime(p.created_at)}</span>
-                <button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️</button>
+                <button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️ 刪除</button>
               </div>
             </div>
             <div class="post-content">${escHtml(p.content)}</div>
@@ -248,7 +248,7 @@
                 <div class="name">${escHtml(u.name)}${u.id === user.id ? '（我）' : ''}</div>
                 <div class="detail">ID: ${u.id.slice(0,8)}…</div>
               </div>
-              <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem" title="修改密語" onclick="openPassModal('${u.id}', '${escHtml(u.name).replace(/'/g, '&#39;')}')">🔑</button>
+              <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem;flex-shrink:0" title="修改這位成員的登入密語" onclick="openPassModal('${u.id}', '${escHtml(u.name).replace(/'/g, '&#39;')}')">🔑 改密語</button>
               ${u.id === user.id
                 ? `<span class="badge badge-admin">SYS_ADMIN</span>`
                 : `<select data-uid="${u.id}" data-prev="${u.role}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;border:1.5px solid var(--border);border-radius:var(--radius);font-family:inherit">

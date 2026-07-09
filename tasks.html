@@ -38,7 +38,7 @@
     .lightbox-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 0.5rem 1rem; }
     .lightbox-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
     .lightbox-bottom {
-      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      display: flex; align-items: center; justify-content: center; gap: 0.6rem; flex-wrap: wrap;
       padding: 0.6rem 1rem calc(0.9rem + env(safe-area-inset-bottom, 0px));
     }
     .lightbox-btn {
@@ -121,16 +121,16 @@
       <div class="lightbox-caption" id="lbCaption"></div>
       <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
         <span class="lightbox-counter" id="lbCounter"></span>
-        <button class="lightbox-btn" style="padding:0.35rem 0.8rem" onclick="closeSlideshow()" title="關閉">✕</button>
+        <button class="lightbox-btn" style="padding:0.35rem 0.8rem" onclick="closeSlideshow()" title="關閉幻燈片">✕ 關閉</button>
       </div>
     </div>
     <div class="lightbox-stage"><img id="lbImg" alt=""></div>
     <div class="lightbox-bottom">
-      <button class="lightbox-btn" onclick="stepSlide(-1)" title="上一張">←</button>
+      <button class="lightbox-btn" onclick="stepSlide(-1)" title="上一張">← 上一張</button>
       <button class="lightbox-btn" id="lbPlayBtn" onclick="toggleAutoplay()" title="自動播放">▶ 自動播放</button>
-      <button class="lightbox-btn" onclick="stepSlide(1)" title="下一張">→</button>
-      <label class="lightbox-btn" title="更換這張照片">🔄<input type="file" accept="image/*" hidden onchange="lbReplace(this)"></label>
-      <button class="lightbox-btn" onclick="lbDelete()" title="刪除這張照片">🗑️</button>
+      <button class="lightbox-btn" onclick="stepSlide(1)" title="下一張">下一張 →</button>
+      <label class="lightbox-btn" title="更換這張照片">🔄 更換<input type="file" accept="image/*" hidden onchange="lbReplace(this)"></label>
+      <button class="lightbox-btn" onclick="lbDelete()" title="刪除這張照片">🗑️ 刪除</button>
     </div>
   </div>
 
@@ -175,8 +175,8 @@
             <div class="photo-slot">
               <img src="${url}" alt="照片 ${n}">
               <div class="slot-actions">
-                <label class="btn btn-sm" title="更換">🔄<input type="file" accept="image/*" hidden onchange="uploadPhoto(${n}, this)"></label>
-                <button class="btn btn-sm" title="刪除" onclick="deletePhoto(${n})">🗑️</button>
+                <label class="btn btn-sm" title="更換這張照片">🔄 更換<input type="file" accept="image/*" hidden onchange="uploadPhoto(${n}, this)"></label>
+                <button class="btn btn-sm" title="刪除這張照片" onclick="deletePhoto(${n})">🗑️ 刪除</button>
               </div>
             </div>`;
         }
@@ -269,7 +269,7 @@
                 ${[1, 2, 3].map(n => {
                   if (!u.slots[n]) {
                     // 空格子：管理員可直接替成員補上傳
-                    return `<label class="mini-slot-empty" style="cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9ca3af" title="替 ${escAttr(u.name)} 上傳照片 ${n}">＋<input type="file" accept="image/*" hidden onchange="adminUploadPhoto('${u.id}', ${n}, this)"></label>`;
+                    return `<label class="mini-slot-empty" style="cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:0.55rem;line-height:1" title="替 ${escAttr(u.name)} 上傳照片 ${n}">＋上傳<input type="file" accept="image/*" hidden onchange="adminUploadPhoto('${u.id}', ${n}, this)"></label>`;
                   }
                   const idx = slideshowPhotos.push({ userId: u.id, name: u.name, slot: n, url: u.slots[n] }) - 1;
                   return `<img class="mini-slot" src="${u.slots[n]}" onclick="openSlideshow(${idx})">`;
@@ -500,8 +500,8 @@
           </div>
           <span class="badge ${isDone ? 'badge-done' : 'badge-pending'}" style="flex-shrink:0">${isDone ? '完成' : '待辦'}</span>
           ${isAdmin ? `
-            <button class="btn btn-ghost btn-sm" style="flex-shrink:0;padding:0.2rem 0.4rem" onclick="editTask('${t.id}')">✏️</button>
-            <button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;padding:0.2rem 0.4rem" onclick="deleteTask('${t.id}')">🗑️</button>` : ''}
+            <button class="btn btn-ghost btn-sm" style="flex-shrink:0;padding:0.2rem 0.4rem" onclick="editTask('${t.id}')">✏️ 編輯</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;padding:0.2rem 0.4rem" onclick="deleteTask('${t.id}')">🗑️ 刪除</button>` : ''}
         </div>`;
     }
 
