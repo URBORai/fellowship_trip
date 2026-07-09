@@ -129,6 +129,8 @@
       <button class="lightbox-btn" onclick="stepSlide(-1)" title="上一張">←</button>
       <button class="lightbox-btn" id="lbPlayBtn" onclick="toggleAutoplay()" title="自動播放">▶ 自動播放</button>
       <button class="lightbox-btn" onclick="stepSlide(1)" title="下一張">→</button>
+      <label class="lightbox-btn" title="更換這張照片">🔄<input type="file" accept="image/*" hidden onchange="lbReplace(this)"></label>
+      <button class="lightbox-btn" onclick="lbDelete()" title="刪除這張照片">🗑️</button>
     </div>
   </div>
 
@@ -189,33 +191,52 @@
       badge.className = 'badge ' + (count === 3 ? 'badge-done' : 'badge-pending');
     }
 
-    async function uploadPhoto(slot, input) {
-      const file = input.files && input.files[0];
-      input.value = '';
-      if (!file) return;
-      if (file.size > MAX_PHOTO_BYTES) { window.showToast('照片不能超過 10MB', 'err'); return; }
-
+    // 共用上傳流程：跟後端要簽名上傳網址，再把檔案直傳 Supabase Storage（不經過 Vercel）。
+    // targetUserId 省略時上傳到自己的格子；管理員可指定任何成員。
+    async function doUpload(slot, file, targetUserId) {
+      if (file.size > MAX_PHOTO_BYTES) { window.showToast('照片不能超過 10MB', 'err'); return false; }
       window.showToast('上傳中，請稍候…');
       try {
-        // 跟後端要簽名上傳網址，再把檔案直傳 Supabase Storage（不經過 Vercel）
+        const body = { slot };
+        if (targetUserId) body.user_id = targetUserId;
         const res = await window.authFetch('/api/photos', {
           method: 'POST',
-          body: JSON.stringify({ slot })
+          body: JSON.stringify(body)
         });
         const data = await res.json();
-        if (!res.ok) { window.showToast(data.error, 'err'); return; }
+        if (!res.ok) { window.showToast(data.error, 'err'); return false; }
 
         const up = await fetch(data.uploadUrl, {
           method: 'PUT',
           headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
           body: file
         });
-        if (!up.ok) { window.showToast('上傳失敗，請再試一次', 'err'); return; }
+        if (!up.ok) { window.showToast('上傳失敗，請再試一次', 'err'); return false; }
 
         window.showToast('✅ 照片已上傳', 'ok');
+        return true;
+      } catch { window.showToast('網路錯誤', 'err'); return false; }
+    }
+
+    async function uploadPhoto(slot, input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      if (await doUpload(slot, file)) {
         loadPhotos();
         if (isAdmin) loadPhotoOverview();
-      } catch { window.showToast('網路錯誤', 'err'); }
+      }
+    }
+
+    // 管理員替成員上傳（總覽的空格子）
+    async function adminUploadPhoto(userId, slot, input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      if (!file) return;
+      if (await doUpload(slot, file, userId)) {
+        loadPhotoOverview();
+        if (userId === user.id) loadPhotos();
+      }
     }
 
     async function deletePhoto(slot) {
@@ -246,8 +267,11 @@
               <div class="contact-info"><div class="name">${escHtml(u.name)}</div></div>
               <div style="display:flex;gap:4px;align-items:center">
                 ${[1, 2, 3].map(n => {
-                  if (!u.slots[n]) return '<div class="mini-slot-empty"></div>';
-                  const idx = slideshowPhotos.push({ name: u.name, slot: n, url: u.slots[n] }) - 1;
+                  if (!u.slots[n]) {
+                    // 空格子：管理員可直接替成員補上傳
+                    return `<label class="mini-slot-empty" style="cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9ca3af" title="替 ${escAttr(u.name)} 上傳照片 ${n}">＋<input type="file" accept="image/*" hidden onchange="adminUploadPhoto('${u.id}', ${n}, this)"></label>`;
+                  }
+                  const idx = slideshowPhotos.push({ userId: u.id, name: u.name, slot: n, url: u.slots[n] }) - 1;
                   return `<img class="mini-slot" src="${u.slots[n]}" onclick="openSlideshow(${idx})">`;
                 }).join('')}
                 <span class="badge ${c === 3 ? 'badge-done' : 'badge-pending'}" style="margin-left:6px">${c}/3</span>
@@ -318,6 +342,40 @@
       else if (e.key === ' ') { e.preventDefault(); toggleAutoplay(); }
     });
 
+    // 燈箱內更換目前這張照片（管理員可換任何人的）
+    async function lbReplace(input) {
+      const file = input.files && input.files[0];
+      input.value = '';
+      const p = slideshowPhotos[slideIdx];
+      if (!file || !p) return;
+      stopAutoplay();
+      if (!(await doUpload(p.slot, file, p.userId))) return;
+      await loadPhotoOverview();
+      if (p.userId === user.id) loadPhotos();
+      // 重建清單後找回同一格（張數沒變，網址會換新）
+      const idx = slideshowPhotos.findIndex(q => q.userId === p.userId && q.slot === p.slot);
+      slideIdx = idx >= 0 ? idx : Math.min(slideIdx, slideshowPhotos.length - 1);
+      renderSlide();
+    }
+
+    // 燈箱內刪除目前這張照片
+    async function lbDelete() {
+      const p = slideshowPhotos[slideIdx];
+      if (!p) return;
+      stopAutoplay();
+      if (!confirm(`確定要刪除 ${p.name} 的照片 ${p.slot} 嗎？`)) return;
+      try {
+        const res = await window.authFetch(`/api/photos?slot=${p.slot}&user_id=${p.userId}`, { method: 'DELETE' });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error, 'err'); return; }
+        window.showToast('已刪除', 'ok');
+      } catch { window.showToast('網路錯誤', 'err'); return; }
+      await loadPhotoOverview();
+      if (p.userId === user.id) loadPhotos();
+      if (!slideshowPhotos.length) { closeSlideshow(); return; }
+      slideIdx = Math.min(slideIdx, slideshowPhotos.length - 1);
+      renderSlide();
+    }
+
     async function loadMembers() {
       const sel = document.getElementById('assignUser');
       try {
@@ -374,6 +432,9 @@
         const tasks = await res.json();
         if (!res.ok) throw new Error(tasks.error);
 
+        taskCache = {};
+        tasks.forEach(t => { taskCache[t.id] = t; });
+
         if (tasks.length === 0) {
           container.innerHTML = '<div class="empty">目前沒有任何任務 🎉</div>';
           return;
@@ -426,6 +487,8 @@
       }
     }
 
+    let taskCache = {};
+
     function taskHTML(t) {
       const isDone = t.status === 'done';
       return `
@@ -436,8 +499,46 @@
             ${t.content ? `<p>${escHtml(t.content)}</p>` : ''}
           </div>
           <span class="badge ${isDone ? 'badge-done' : 'badge-pending'}" style="flex-shrink:0">${isDone ? '完成' : '待辦'}</span>
-          ${isAdmin ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;padding:0.2rem 0.4rem" onclick="deleteTask('${t.id}')">🗑️</button>` : ''}
+          ${isAdmin ? `
+            <button class="btn btn-ghost btn-sm" style="flex-shrink:0;padding:0.2rem 0.4rem" onclick="editTask('${t.id}')">✏️</button>
+            <button class="btn btn-ghost btn-sm" style="color:var(--danger);flex-shrink:0;padding:0.2rem 0.4rem" onclick="deleteTask('${t.id}')">🗑️</button>` : ''}
         </div>`;
+    }
+
+    // 管理員行內編輯任務標題與說明
+    function editTask(id) {
+      const t = taskCache[id];
+      const row = document.getElementById(`task-${id}`);
+      if (!t || !row) return;
+      row.innerHTML = `
+        <div style="width:100%">
+          <div class="form-group" style="margin-bottom:0.5rem">
+            <input type="text" id="editTitle-${id}" value="${escAttr(t.title)}" placeholder="任務標題">
+          </div>
+          <div class="form-group" style="margin-bottom:0.5rem">
+            <input type="text" id="editContent-${id}" value="${escAttr(t.content || '')}" placeholder="說明（選填）">
+          </div>
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+            <button class="btn btn-sm" onclick="loadTasks()">取消</button>
+            <button class="btn btn-primary btn-sm" onclick="saveTask('${id}')">儲存</button>
+          </div>
+        </div>`;
+      document.getElementById(`editTitle-${id}`).focus();
+    }
+
+    async function saveTask(id) {
+      const title = document.getElementById(`editTitle-${id}`).value.trim();
+      const content = document.getElementById(`editContent-${id}`).value.trim();
+      if (!title) { window.showToast('任務標題不能為空', 'err'); return; }
+      try {
+        const res = await window.authFetch(`/api/tasks/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ title, content })
+        });
+        if (!res.ok) { const d = await res.json(); window.showToast(d.error || '更新失敗', 'err'); return; }
+        window.showToast('✅ 已更新任務', 'ok');
+      } catch { window.showToast('網路錯誤', 'err'); }
+      loadTasks();
     }
 
     async function toggleTask(id, isDone) {
@@ -473,6 +574,10 @@
 
     function escHtml(s) {
       return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function escAttr(s) {
+      return escHtml(String(s)).replace(/"/g,'&quot;');
     }
 
     loadTasks();

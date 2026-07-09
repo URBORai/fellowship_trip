@@ -74,24 +74,51 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 變更權限
+  // 變更權限 / 修改密語
   if (req.method === 'PATCH') {
-    const { id, role } = req.body || {};
+    const { id, role, passphrase } = req.body || {};
     if (!id || !UUID_RE.test(id)) return res.status(400).json({ error: '無效的成員 ID' });
-    if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: '無效的權限' });
-    // 防止把自己降級後鎖在後台外
-    if (id === user.id) return res.status(400).json({ error: '不能修改自己的權限' });
+    if (role === undefined && passphrase === undefined) {
+      return res.status(400).json({ error: '沒有要更新的欄位' });
+    }
+
+    const patch = {};
+    if (role !== undefined) {
+      if (!VALID_ROLES.includes(role)) return res.status(400).json({ error: '無效的權限' });
+      // 防止把自己降級後鎖在後台外
+      if (id === user.id) return res.status(400).json({ error: '不能修改自己的權限' });
+      patch.role = role;
+    }
 
     try {
+      if (passphrase !== undefined) {
+        // NFC 正規化：與 api/auth.js 登入比對邏輯一致
+        const trimmedPass = (passphrase || '').trim().normalize('NFC');
+        if (!trimmedPass) return res.status(400).json({ error: '請輸入密語' });
+        if (trimmedPass.length < 4) return res.status(400).json({ error: '密語至少 4 個字' });
+        if (trimmedPass.length > 50) return res.status(400).json({ error: '密語最多 50 字' });
+
+        // 密語是登入唯一憑證，不可與其他成員重複
+        const dup = await sb(`users?passphrase=eq.${encodeURIComponent(trimmedPass)}&id=neq.${id}&select=id`);
+        if (dup && dup.length > 0) {
+          return res.status(400).json({ error: '這個密語已被使用，請換一個' });
+        }
+        patch.passphrase = trimmedPass;
+        patch.passphrase_hash = await bcrypt.hash(trimmedPass, 10);
+      }
+
       const updated = await sb(`users?id=eq.${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ role })
+        body: JSON.stringify(patch)
       });
       if (!updated || updated.length === 0) return res.status(404).json({ error: '找不到成員' });
       const u = updated[0];
       return res.status(200).json({ id: u.id, name: u.name, role: u.role });
     } catch (e) {
       console.error('users-admin PATCH error:', e);
+      if (/duplicate|unique/i.test(e.message || '')) {
+        return res.status(400).json({ error: '這個密語已被使用，請換一個' });
+      }
       return res.status(500).json({ error: '伺服器錯誤' });
     }
   }

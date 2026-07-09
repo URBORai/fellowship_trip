@@ -72,7 +72,9 @@
           return;
         }
 
+        postCache = {};
         el.innerHTML = posts.map(p => {
+          postCache[p.id] = p;
           const isOwner = user && p.created_by === user.id;
           const isAdmin = user && user.role === 'SYS_ADMIN';
           const canDelete = isOwner || isAdmin;
@@ -85,10 +87,11 @@
                 </div>
                 <div style="display:flex;align-items:center;gap:0.5rem">
                   <span class="post-meta">${window.fmtDateTime(p.created_at)}</span>
+                  ${isAdmin ? `<button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem" onclick="editPost('${p.id}')">✏️</button>` : ''}
                   ${canDelete ? `<button class="btn btn-ghost btn-sm" style="color:var(--danger);padding:0.2rem 0.4rem" onclick="deletePost('${p.id}')">🗑️</button>` : ''}
                 </div>
               </div>
-              <div class="post-content">${escHtml(p.content)}</div>
+              <div class="post-content" id="postContent-${p.id}">${escHtml(p.content)}</div>
             </div>`;
         }).join('');
       } catch (e) {
@@ -122,6 +125,41 @@
         load();
       } catch { window.showToast('網路錯誤', 'err'); }
       finally { btn.disabled = false; }
+    }
+
+    let postCache = {};
+
+    // 管理員行內編輯留言
+    function editPost(id) {
+      const p = postCache[id];
+      const el = document.getElementById(`postContent-${id}`);
+      if (!p || !el) return;
+      el.innerHTML = `
+        <div class="form-group" style="margin-bottom:0.5rem">
+          <textarea id="editContent-${id}" rows="3" maxlength="500"></textarea>
+        </div>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+          <button class="btn btn-sm" onclick="load()">取消</button>
+          <button class="btn btn-primary btn-sm" onclick="savePost('${id}')">儲存</button>
+        </div>`;
+      const ta = document.getElementById(`editContent-${id}`);
+      ta.value = p.content;
+      ta.focus();
+    }
+
+    async function savePost(id) {
+      const content = document.getElementById(`editContent-${id}`).value.trim();
+      if (!content) { window.showToast('請輸入內容', 'err'); return; }
+      try {
+        const res = await window.authFetch(`/api/board/${id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ content })
+        });
+        const data = await res.json();
+        if (!res.ok) { window.showToast(data.error || '更新失敗', 'err'); return; }
+        window.showToast('✅ 已更新留言', 'ok');
+      } catch { window.showToast('網路錯誤', 'err'); }
+      load();
     }
 
     async function deletePost(id) {

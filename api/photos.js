@@ -73,14 +73,24 @@ module.exports = async (req, res) => {
     }
   }
 
+  // 決定操作對象：預設是自己；管理員可帶 user_id 操作任何成員的照片格
+  function resolveTargetId(rawUserId) {
+    if (!rawUserId || rawUserId === user.id) return user.id;
+    if (user.role !== 'SYS_ADMIN') return null;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawUserId)) return null;
+    return rawUserId;
+  }
+
   // 取得簽名上傳網址（上傳與更換都走這裡，x-upsert 覆蓋舊檔）
   if (req.method === 'POST') {
-    const { slot } = req.body || {};
+    const { slot, user_id } = req.body || {};
     if (![1, 2, 3].includes(Number(slot))) {
       return res.status(400).json({ error: '無效的照片格編號' });
     }
+    const targetId = resolveTargetId(user_id);
+    if (!targetId) return res.status(403).json({ error: '無權限操作其他成員的照片' });
     try {
-      const data = await storage(`/object/upload/sign/${BUCKET}/${user.id}/slot-${slot}`, {
+      const data = await storage(`/object/upload/sign/${BUCKET}/${targetId}/slot-${slot}`, {
         method: 'POST',
         headers: { 'x-upsert': 'true' },
         body: '{}'
@@ -92,14 +102,16 @@ module.exports = async (req, res) => {
     }
   }
 
-  // 刪除自己某一格的照片
+  // 刪除某一格的照片（自己的；管理員可帶 user_id 刪任何成員的）
   if (req.method === 'DELETE') {
     const slot = Number((req.query && req.query.slot) || 0);
     if (![1, 2, 3].includes(slot)) {
       return res.status(400).json({ error: '無效的照片格編號' });
     }
+    const targetId = resolveTargetId(req.query && req.query.user_id);
+    if (!targetId) return res.status(403).json({ error: '無權限操作其他成員的照片' });
     try {
-      await storage(`/object/${BUCKET}/${user.id}/slot-${slot}`, { method: 'DELETE' });
+      await storage(`/object/${BUCKET}/${targetId}/slot-${slot}`, { method: 'DELETE' });
       return res.status(204).end();
     } catch (e) {
       console.error('photos DELETE error:', e);

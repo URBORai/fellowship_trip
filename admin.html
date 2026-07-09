@@ -70,7 +70,7 @@
       </div>
       <div class="form-group">
         <label>登入密語（成員用這個登入，不可與他人重複）</label>
-        <input type="text" id="newUserPass" maxlength="50" placeholder="例：xiaoming2026">
+        <input type="text" id="newUserPass" maxlength="50" placeholder="中英文皆可，例：小明愛烤肉">
       </div>
       <div class="form-group">
         <label>權限</label>
@@ -82,6 +82,21 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="closeAddUser()">取消</button>
         <button class="btn btn-primary" id="addUserBtn" onclick="submitAddUser()">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="passModalOverlay" style="display:none">
+    <div class="modal">
+      <h3>修改密語</h3>
+      <p class="text-muted text-sm mb-3" id="passModalWho"></p>
+      <div class="form-group">
+        <label>新密語（成員用這個登入，不可與他人重複）</label>
+        <input type="text" id="newPass" maxlength="50" placeholder="至少 4 個字，中英文皆可">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closePassModal()">取消</button>
+        <button class="btn btn-primary" id="savePassBtn" onclick="submitPass()">儲存</button>
       </div>
     </div>
   </div>
@@ -233,6 +248,7 @@
                 <div class="name">${escHtml(u.name)}${u.id === user.id ? '（我）' : ''}</div>
                 <div class="detail">ID: ${u.id.slice(0,8)}…</div>
               </div>
+              <button class="btn btn-ghost btn-sm" style="padding:0.2rem 0.4rem" title="修改密語" onclick="openPassModal('${u.id}', '${escHtml(u.name).replace(/'/g, '&#39;')}')">🔑</button>
               ${u.id === user.id
                 ? `<span class="badge badge-admin">SYS_ADMIN</span>`
                 : `<select data-uid="${u.id}" data-prev="${u.role}" style="width:auto;padding:0.3rem 0.5rem;font-size:0.8rem;border:1.5px solid var(--border);border-radius:var(--radius);font-family:inherit">
@@ -268,6 +284,49 @@
       } catch {
         window.showToast('網路錯誤', 'err');
         sel.value = sel.dataset.prev;
+      }
+    }
+
+    // ===== 修改密語 =====
+    let passTargetId = null;
+
+    function openPassModal(id, name) {
+      passTargetId = id;
+      document.getElementById('passModalWho').textContent = `成員：${name}${id === user.id ? '（我）' : ''}`;
+      document.getElementById('newPass').value = '';
+      document.getElementById('passModalOverlay').style.display = 'flex';
+      document.getElementById('newPass').focus();
+    }
+
+    function closePassModal() {
+      passTargetId = null;
+      document.getElementById('passModalOverlay').style.display = 'none';
+    }
+
+    document.getElementById('passModalOverlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closePassModal();
+    });
+
+    async function submitPass() {
+      const passphrase = document.getElementById('newPass').value.trim();
+      if (!passphrase) return window.showToast('請輸入密語', 'err');
+      if (passphrase.length < 4) return window.showToast('密語至少 4 個字', 'err');
+
+      const btn = document.getElementById('savePassBtn');
+      btn.disabled = true;
+      try {
+        const res = await window.authFetch('/api/users-admin', {
+          method: 'PATCH',
+          body: JSON.stringify({ id: passTargetId, passphrase })
+        });
+        const d = await res.json();
+        if (!res.ok) { window.showToast(d.error, 'err'); return; }
+        closePassModal();
+        window.showToast(`已更新「${d.name}」的密語，記得告訴他新密語`, 'ok');
+      } catch {
+        window.showToast('網路錯誤', 'err');
+      } finally {
+        btn.disabled = false;
       }
     }
 

@@ -29,14 +29,30 @@ module.exports = async (req, res) => {
         return res.status(403).json({ error: '無權限修改此任務' });
       }
 
-      const { status } = req.body || {};
-      if (!status || !['pending', 'done'].includes(status)) {
-        return res.status(400).json({ error: '無效的狀態值' });
+      const { status, title, content } = req.body || {};
+      const patch = {};
+      if (status !== undefined) {
+        if (!['pending', 'done'].includes(status)) {
+          return res.status(400).json({ error: '無效的狀態值' });
+        }
+        patch.status = status;
+      }
+      // 編輯標題與說明：僅 SYS_ADMIN
+      if (title !== undefined || content !== undefined) {
+        if (role !== 'SYS_ADMIN') return res.status(403).json({ error: '僅管理員可編輯任務內容' });
+        if (title !== undefined) {
+          if (!title || !title.trim()) return res.status(400).json({ error: '任務標題不能為空' });
+          patch.title = title.trim();
+        }
+        if (content !== undefined) patch.content = (content || '').trim() || null;
+      }
+      if (Object.keys(patch).length === 0) {
+        return res.status(400).json({ error: '沒有要更新的欄位' });
       }
 
       const updated = await sb(`tasks?id=eq.${id}`, {
         method: 'PATCH',
-        body: JSON.stringify({ status })
+        body: JSON.stringify(patch)
       });
       return res.status(200).json(updated[0]);
     } catch (e) {
