@@ -85,11 +85,25 @@
 
     <!-- 全員照片繳交狀況（僅 SYS_ADMIN 顯示） -->
     <div class="card" id="photoOverviewCard" style="display:none">
-      <div class="flex-between mb-3">
-        <p class="card-title" style="margin:0">全員照片繳交狀況</p>
-        <button class="btn btn-primary btn-sm" onclick="openSlideshow(0)">▶ 幻燈片播放</button>
+      <p class="card-title">全員照片</p>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchPhotoTab('status', this)">繳交狀況</button>
+        <button class="tab-btn" onclick="switchPhotoTab('show', this)">一起放映</button>
       </div>
-      <div id="photoOverview"><div class="loading">載入中…</div></div>
+      <div class="tab-panel active" id="photoTab-status">
+        <div class="flex-between mb-3">
+          <span class="text-muted text-sm">點縮圖可放大檢視</span>
+          <button class="btn btn-primary btn-sm" onclick="openSlideshow(0)">▶ 幻燈片播放</button>
+        </div>
+        <div id="photoOverview"><div class="loading">載入中…</div></div>
+      </div>
+      <div class="tab-panel" id="photoTab-show">
+        <p class="text-muted text-sm mb-3">活動時大家一起看：以「一人一組」的方式，把每個人的 3 張照片當成一組，組別順序隨機放映。預設不顯示名字，讓大家猜猜是誰的照片，放映中隨時可按「顯示名字」揭曉。</p>
+        <label style="display:flex;align-items:center;gap:0.4rem;margin-bottom:1rem;cursor:pointer">
+          <input type="checkbox" id="alwaysShowNames" style="width:auto"> 播放時直接顯示名字
+        </label>
+        <button class="btn btn-primary" onclick="startGroupShow()">🎲 隨機放映</button>
+      </div>
     </div>
 
     <!-- 指派任務（僅 SYS_ADMIN 顯示） -->
@@ -121,6 +135,7 @@
       <div class="lightbox-caption" id="lbCaption"></div>
       <div style="display:flex;align-items:center;gap:0.75rem;flex-shrink:0">
         <span class="lightbox-counter" id="lbCounter"></span>
+        <button class="lightbox-btn" style="padding:0.35rem 0.8rem;display:none" id="lbRevealBtn" onclick="toggleReveal()">👁 顯示名字</button>
         <button class="lightbox-btn" style="padding:0.35rem 0.8rem" id="lbFsBtn" onclick="toggleFullscreen()" title="切換全螢幕">⛶ 全螢幕</button>
         <button class="lightbox-btn" style="padding:0.35rem 0.8rem" onclick="closeSlideshow()" title="關閉幻燈片">✕ 關閉</button>
       </div>
@@ -130,8 +145,10 @@
       <button class="lightbox-btn" onclick="stepSlide(-1)" title="上一張">← 上一張</button>
       <button class="lightbox-btn" id="lbPlayBtn" onclick="toggleAutoplay()" title="自動播放">▶ 自動播放</button>
       <button class="lightbox-btn" onclick="stepSlide(1)" title="下一張">下一張 →</button>
-      <label class="lightbox-btn" title="更換這張照片">🔄 更換<input type="file" accept="image/*" hidden onchange="lbReplace(this)"></label>
-      <button class="lightbox-btn" onclick="lbDelete()" title="刪除這張照片">🗑️ 刪除</button>
+      <span id="lbManage" style="display:flex;gap:0.6rem">
+        <label class="lightbox-btn" title="更換這張照片">🔄 更換<input type="file" accept="image/*" hidden onchange="lbReplace(this)"></label>
+        <button class="lightbox-btn" onclick="lbDelete()" title="刪除這張照片">🗑️ 刪除</button>
+      </span>
     </div>
   </div>
 
@@ -267,7 +284,8 @@
         if (!res.ok) throw new Error(list.error);
 
         // 把所有人的照片攤平成幻燈片清單，縮圖點擊直接跳到那一張
-        slideshowPhotos = [];
+        overviewList = list;
+        overviewPhotos = [];
         el.innerHTML = list.map(u => {
           const c = Object.keys(u.slots).length;
           return `
@@ -280,29 +298,80 @@
                     // 空格子：管理員可直接替成員補上傳
                     return `<label class="mini-slot-empty" style="cursor:pointer;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:0.55rem;line-height:1" title="替 ${escAttr(u.name)} 上傳照片 ${n}">＋上傳<input type="file" accept="image/*" hidden onchange="adminUploadPhoto('${u.id}', ${n}, this)"></label>`;
                   }
-                  const idx = slideshowPhotos.push({ userId: u.id, name: u.name, slot: n, url: u.slots[n] }) - 1;
+                  const idx = overviewPhotos.push({ userId: u.id, name: u.name, slot: n, url: u.slots[n] }) - 1;
                   return `<img class="mini-slot" src="${u.slots[n]}" onclick="openSlideshow(${idx})">`;
                 }).join('')}
                 <span class="badge ${c === 3 ? 'badge-done' : 'badge-pending'}" style="margin-left:6px">${c}/3</span>
               </div>
             </div>`;
         }).join('');
+        // 一般瀏覽模式下，播放清單跟著總覽同步更新
+        if (!groupMode) slideshowPhotos = overviewPhotos;
       } catch (e) {
         el.innerHTML = `<div class="empty">載入失敗：${e.message}</div>`;
       }
     }
 
+    function switchPhotoTab(name, btn) {
+      document.querySelectorAll('#photoOverviewCard .tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('#photoOverviewCard .tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('photoTab-' + name).classList.add('active');
+    }
+
     // ===== 幻燈片（全螢幕瀏覽全員照片） =====
-    let slideshowPhotos = [];
+    let overviewList = [];      // 總覽原始資料（每人 slots）
+    let overviewPhotos = [];    // 依總覽順序攤平的照片（含名字）
+    let slideshowPhotos = [];   // 目前播放清單
     let slideIdx = 0;
     let slideTimer = null;
+    let groupMode = false;      // 隨機分組放映（隱藏名字）
+    let revealedGroups = new Set();
+
+    function openLightbox() {
+      document.getElementById('lbRevealBtn').style.display = groupMode ? '' : 'none';
+      document.getElementById('lbManage').style.display = groupMode ? 'none' : 'flex';
+      document.getElementById('lightbox').classList.add('open');
+      document.body.style.overflow = 'hidden';
+      renderSlide();
+    }
 
     function openSlideshow(idx) {
+      groupMode = false;
+      slideshowPhotos = overviewPhotos;
       if (!slideshowPhotos.length) { window.showToast('目前還沒有任何照片', 'err'); return; }
       slideIdx = Math.min(Math.max(idx || 0, 0), slideshowPhotos.length - 1);
-      const lb = document.getElementById('lightbox');
-      lb.classList.add('open');
-      document.body.style.overflow = 'hidden';
+      openLightbox();
+    }
+
+    // 隨機分組放映：一人一組（該人的所有照片），組別順序隨機
+    function startGroupShow() {
+      const groups = overviewList.filter(u => Object.keys(u.slots).length > 0);
+      if (!groups.length) { window.showToast('目前還沒有任何照片', 'err'); return; }
+      // Fisher–Yates 洗牌組別順序
+      for (let i = groups.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [groups[i], groups[j]] = [groups[j], groups[i]];
+      }
+      slideshowPhotos = [];
+      groups.forEach((u, gi) => {
+        const slots = [1, 2, 3].filter(n => u.slots[n]);
+        slots.forEach((n, pi) => slideshowPhotos.push({
+          userId: u.id, name: u.name, slot: n, url: u.slots[n],
+          groupIdx: gi, pos: pi + 1, groupSize: slots.length
+        }));
+      });
+      groupMode = true;
+      revealedGroups = new Set();
+      slideIdx = 0;
+      openLightbox();
+    }
+
+    function toggleReveal() {
+      const p = slideshowPhotos[slideIdx];
+      if (!p) return;
+      if (revealedGroups.has(p.groupIdx)) revealedGroups.delete(p.groupIdx);
+      else revealedGroups.add(p.groupIdx);
       renderSlide();
     }
 
@@ -346,7 +415,15 @@
     function renderSlide() {
       const p = slideshowPhotos[slideIdx];
       document.getElementById('lbImg').src = p.url;
-      document.getElementById('lbCaption').textContent = `${p.name} — 照片 ${p.slot}`;
+      if (groupMode) {
+        const revealed = document.getElementById('alwaysShowNames').checked || revealedGroups.has(p.groupIdx);
+        document.getElementById('lbCaption').textContent = revealed
+          ? `${p.name}（第 ${p.groupIdx + 1} 組 · ${p.pos}/${p.groupSize}）`
+          : `第 ${p.groupIdx + 1} 組 · 第 ${p.pos}/${p.groupSize} 張（猜猜是誰的？）`;
+        document.getElementById('lbRevealBtn').textContent = revealed ? '🙈 隱藏名字' : '👁 顯示名字';
+      } else {
+        document.getElementById('lbCaption').textContent = `${p.name} — 照片 ${p.slot}`;
+      }
       document.getElementById('lbCounter').textContent = `${slideIdx + 1} / ${slideshowPhotos.length}`;
       // 預載下一張，播放時比較順
       const next = slideshowPhotos[(slideIdx + 1) % slideshowPhotos.length];
