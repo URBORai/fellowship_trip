@@ -195,7 +195,10 @@
     // 共用上傳流程：跟後端要簽名上傳網址，再把檔案直傳 Supabase Storage（不經過 Vercel）。
     // targetUserId 省略時上傳到自己的格子；管理員可指定任何成員。
     async function doUpload(slot, file, targetUserId) {
-      if (file.size > MAX_PHOTO_BYTES) { window.showToast('照片不能超過 10MB', 'err'); return false; }
+      if (file.size > MAX_PHOTO_BYTES) {
+        window.showToast(`這張照片 ${(file.size / 1048576).toFixed(1)}MB，超過 10MB 上限，請換一張或先壓縮`, 'err');
+        return false;
+      }
       window.showToast('上傳中，請稍候…');
       try {
         const body = { slot };
@@ -212,7 +215,12 @@
           headers: { 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
           body: file
         });
-        if (!up.ok) { window.showToast('上傳失敗，請再試一次', 'err'); return false; }
+        if (!up.ok) {
+          let msg = '';
+          try { msg = (JSON.parse(await up.text()) || {}).message || ''; } catch { /* 非 JSON 回應 */ }
+          window.showToast(`上傳失敗（${up.status}${msg ? '：' + msg : ''}），請再試一次`, 'err');
+          return false;
+        }
 
         window.showToast('✅ 照片已上傳', 'ok');
         return true;
